@@ -1,6 +1,14 @@
 import type {
 	Quest as QuestShape,
+	QuestUserStatus,
 } from './interface';
+
+type QuestStatusUpdate =
+	| QuestShape['user_status']
+	| QuestShape
+	| { user_status?: QuestShape['user_status']; quest?: QuestShape }
+	| null
+	| undefined;
 
 export class Quest {
 	private readonly data: QuestShape;
@@ -49,7 +57,29 @@ export class Quest {
 		return Boolean(this.userStatus?.claimed_at);
 	}
 
-    updateUserStatus(userStatus: QuestShape["user_status"]) {
-        this.data.user_status = userStatus;
-    }
+	updateUserStatus(response: QuestStatusUpdate) {
+		if (response == null) {
+			this.data.user_status = null;
+			return;
+		}
+
+		if ('quest' in response && response.quest?.user_status !== undefined) {
+			this.data.user_status = response.quest.user_status;
+			return;
+		}
+
+		if ('user_status' in response) {
+			this.data.user_status = response.user_status ?? null;
+			return;
+		}
+
+		if (
+			'enrolled_at' in response ||
+			'completed_at' in response ||
+			'claimed_at' in response ||
+			'progress' in response
+		) {
+			this.data.user_status = response as QuestUserStatus;
+		}
+	}
 }

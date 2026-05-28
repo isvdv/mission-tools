@@ -1,6 +1,41 @@
 import { ClientQuest } from './client';
-import type { AllQuestsResponse, QuestTaskConfigType } from './interface';
+import type {
+	AllQuestsResponse,
+	QuestTask,
+} from './interface';
+import { QuestTaskConfigType } from './interface';
 import { Quest } from './quest';
+
+export type QuestProgressUpdate = {
+	message: string;
+	secondsDone?: number;
+	secondsNeeded?: number;
+};
+
+export type QuestProgressReporter = (update: QuestProgressUpdate) => void;
+
+const SUPPORTED_TASKS = [
+	QuestTaskConfigType.WATCH_VIDEO,
+	QuestTaskConfigType.PLAY_ON_DESKTOP,
+	QuestTaskConfigType.STREAM_ON_DESKTOP,
+	QuestTaskConfigType.PLAY_ACTIVITY,
+	QuestTaskConfigType.WATCH_VIDEO_ON_MOBILE,
+] as const;
+
+function getSupportedTask(
+	tasks?: Partial<Record<QuestTaskConfigType, QuestTask>>,
+): { taskName: QuestTaskConfigType; task: QuestTask } | null {
+	if (!tasks) return null;
+
+	for (const taskName of SUPPORTED_TASKS) {
+		const task = tasks[taskName];
+		if (task) {
+			return { taskName, task };
+		}
+	}
+
+	return null;
+}
 
 export class QuestManager implements Iterable<Quest> {
 	private readonly quests = new Map<string, Quest>();
@@ -14,6 +49,12 @@ export class QuestManager implements Iterable<Quest> {
 		client: ClientQuest,
 		response: AllQuestsResponse,
 	): QuestManager {
+		if (!Array.isArray(response?.quests)) {
+			throw new Error(
+				'Discord did not return a quest list. Check your token and try again.',
+			);
+		}
+
 		return new QuestManager(
 			client,
 			response.quests.map((quest) => Quest.create(quest)),
@@ -96,8 +137,8 @@ export class QuestManager implements Iterable<Quest> {
 		>;
 	}
 
-	acceptQuest(questId: string) {
-		return this.client.rest
+	acceptQuest(questId: string, signal?: AbortSignal) {
+		return this.withAbort(this.client.rest
 			.post(`/quests/${questId}/enroll`, {
 				body: {
 					location: 11, // QUEST_HOME_DESKTOP | https://docs.discord.food/resources/quests#quest-content-type
@@ -109,32 +150,111 @@ export class QuestManager implements Iterable<Quest> {
 				const quest = this.get(questId);
 				quest?.updateUserStatus(r as any);
 				return quest;
-			});
+			}), signal);
 	}
 
-	private async timeout(ms: number) {
-		return new Promise((resolve) => setTimeout(resolve, ms));
+	private abortError(signal?: AbortSignal): Error {
+		const reason = signal?.reason;
+		if (reason instanceof Error) return reason;
+
+		return new Error(
+			typeof reason === 'string' && reason
+				? reason
+				: 'Operacao cancelada.',
+		);
 	}
 
-	async doingQuest(quest: Quest) {
-		const questName = quest.config.messages.quest_name;
-		if (!quest.isEnrolledQuest()) {
-			console.log(`Enrolling in quest "${questName}"...`);
-			await this.acceptQuest(quest.id);
+	private throwIfAborted(signal?: AbortSignal): void {
+		if (signal?.aborted) {
+			throw this.abortError(signal);
 		}
-		const applicationName = quest.config.application.name;
-		const taskConfig = quest.config.task_config;
-		const taskName = [
-			'WATCH_VIDEO',
-			'PLAY_ON_DESKTOP',
-			'STREAM_ON_DESKTOP',
-			'PLAY_ACTIVITY',
-			'WATCH_VIDEO_ON_MOBILE',
-		].find(
-			(x) => taskConfig.tasks[x as QuestTaskConfigType] != null,
-		) as QuestTaskConfigType;
-		const secondsNeeded = taskConfig.tasks[taskName].target;
+	}
+
+	private async withAbort<T>(
+		promise: Promise<T>,
+		signal?: AbortSignal,
+	): Promise<T> {
+		this.throwIfAborted(signal);
+		if (!signal) return promise;
+
+		return new Promise<T>((resolve, reject) => {
+			const onAbort = () => reject(this.abortError(signal));
+			signal.addEventListener('abort', onAbort, { once: true });
+
+			promise.then(
+				(value) => {
+					signal.removeEventListener('abort', onAbort);
+					if (signal.aborted) {
+						reject(this.abortError(signal));
+						return;
+					}
+					resolve(value);
+				},
+				(error) => {
+					signal.removeEventListener('abort', onAbort);
+					reject(error);
+				},
+			);
+		});
+	}
+
+	private async timeout(ms: number, signal?: AbortSignal) {
+		this.throwIfAborted(signal);
+
+		return new Promise((resolve, reject) => {
+			const timeoutId = setTimeout(resolve, ms);
+			signal?.addEventListener(
+				'abort',
+				() => {
+					clearTimeout(timeoutId);
+					reject(this.abortError(signal));
+				},
+				{ once: true },
+			);
+		});
+	}
+
+	async doingQuest(
+		quest: Quest,
+		reportProgress?: QuestProgressReporter,
+		signal?: AbortSignal,
+	) {
+		this.throwIfAborted(signal);
+		const questName = quest.config.messages?.quest_name?.trim() || quest.id;
+		if (!quest.isEnrolledQuest()) {
+			const message = `Entrando na missao "${questName}"...`;
+			console.log(message);
+			reportProgress?.({ message });
+			await this.acceptQuest(quest.id, signal);
+		}
+		const applicationName = quest.config.application?.name ?? 'Unknown app';
+		const taskConfig =
+			quest.config.task_config ?? quest.config.task_config_v2;
+		const supportedTask = getSupportedTask(taskConfig?.tasks);
+		if (!supportedTask) {
+			const availableTasks = Object.keys(taskConfig?.tasks ?? {});
+			throw new Error(
+				`Quest "${questName}" has no supported task type${
+					availableTasks.length
+						? ` (${availableTasks.join(', ')})`
+						: ''
+				}.`,
+			);
+		}
+
+		const { taskName, task } = supportedTask;
+		const secondsNeeded = task.target;
+		if (!Number.isFinite(secondsNeeded) || secondsNeeded <= 0) {
+			throw new Error(
+				`Quest "${questName}" has an invalid target time.`,
+			);
+		}
 		let secondsDone = quest.userStatus?.progress?.[taskName]?.value ?? 0;
+		reportProgress?.({
+			message: `Iniciando ${questName}.`,
+			secondsDone,
+			secondsNeeded,
+		});
 		if (
 			taskName === 'WATCH_VIDEO' ||
 			taskName === 'WATCH_VIDEO_ON_MOBILE'
@@ -142,19 +262,23 @@ export class QuestManager implements Iterable<Quest> {
 			const maxFuture = 10,
 				speed = 7,
 				interval = 1;
-			const enrolledAt = new Date(
+			const enrolledAtValue = new Date(
 				quest.userStatus?.enrolled_at as any,
 			).getTime();
+			const enrolledAt = Number.isFinite(enrolledAtValue)
+				? enrolledAtValue
+				: Date.now();
 			let completed = false;
 			let fn = async () => {
 				while (true) {
+					this.throwIfAborted(signal);
 					const maxAllowed =
 						Math.floor((Date.now() - enrolledAt) / 1000) +
 						maxFuture;
 					const diff = maxAllowed - secondsDone;
 					const timestamp = secondsDone + speed;
 					if (diff >= speed) {
-						const res = (await this.client.rest.post(
+						const res = (await this.withAbort(this.client.rest.post(
 							`/quests/${quest.id}/video-progress`,
 							{
 								body: {
@@ -164,79 +288,107 @@ export class QuestManager implements Iterable<Quest> {
 									),
 								},
 							},
-						)) as any;
+						), signal)) as any;
+						this.throwIfAborted(signal);
 						completed = res.completed_at != null;
 						secondsDone = Math.min(secondsNeeded, timestamp);
+						reportProgress?.({
+							message: `Progresso de video para ${questName}.`,
+							secondsDone,
+							secondsNeeded,
+						});
 					}
 
 					if (timestamp >= secondsNeeded) {
 						break;
 					}
-					await this.timeout(interval * 1000);
+					await this.timeout(interval * 1000, signal);
 				}
+				this.throwIfAborted(signal);
 				if (!completed) {
-					await this.client.rest.post(
+					await this.withAbort(this.client.rest.post(
 						`/quests/${quest.id}/video-progress`,
 						{
 							body: { timestamp: secondsNeeded },
 						},
-					);
+					), signal);
 				}
 				console.log(`Quest "${questName}" completed!`);
+				reportProgress?.({
+					message: `Missao "${questName}" concluida.`,
+					secondsDone: secondsNeeded,
+					secondsNeeded,
+				});
 			};
 			console.log(`Spoofing video for ${questName}.`);
 			await fn();
 		} else if (taskName === 'PLAY_ON_DESKTOP') {
+			const applicationId = quest.config.application?.id;
+			if (!applicationId) {
+				throw new Error(
+					`Quest "${questName}" is missing an application id.`,
+				);
+			}
 			const interval = 60;
 			while (!quest.isCompleted()) {
-				const secondsDone = quest.userStatus?.progress?.[taskName]?.value as number || 0;
-				const res = await this.client.rest.post(
+				this.throwIfAborted(signal);
+				const secondsDone =
+					(quest.userStatus?.progress?.[taskName]?.value as number) ||
+					0;
+				const res = await this.withAbort(this.client.rest.post(
 					`/quests/${quest.id}/heartbeat`,
 					{
 						body: {
-							application_id: quest.config.application.id,
+							application_id: applicationId,
 							terminal: false,
 						},
 					},
-				);
+				), signal);
+				this.throwIfAborted(signal);
 				quest.updateUserStatus(res as any);
+				const currentSecondsDone =
+					quest.userStatus?.progress?.[taskName]?.value ??
+					secondsDone;
+				reportProgress?.({
+					message: `Atualizando progresso de ${applicationName}.`,
+					secondsDone: currentSecondsDone,
+					secondsNeeded,
+				});
 				console.log(
 					`Spoofed your game to ${applicationName}. Wait for ${Math.ceil(
 						(secondsNeeded - secondsDone) / 60,
 					)} more minutes.`,
 				);
-				await new Promise((resolve) =>
-					setTimeout(resolve, interval * 1000),
-				);
+				await this.timeout(interval * 1000, signal);
 			}
-			const res = await this.client.rest.post(
+			this.throwIfAborted(signal);
+			const res = await this.withAbort(this.client.rest.post(
 				`/quests/${quest.id}/heartbeat`,
 				{
 					body: {
-						application_id: quest.config.application.id,
+						application_id: applicationId,
 						terminal: true,
 					},
 				},
-			);
+			), signal);
 			quest.updateUserStatus(res as any);
 			console.log(`Quest "${questName}" completed!`);
+			reportProgress?.({
+				message: `Missao "${questName}" concluida.`,
+				secondsDone: secondsNeeded,
+				secondsNeeded,
+			});
 		} else if (taskName === 'STREAM_ON_DESKTOP') {
-			console.log(
-				'This no longer works in node for non-video quests. Use the discord desktop app to complete the',
-				questName,
-				'quest!',
+			throw new Error(
+				`This no longer works in node for non-video quests. Use the Discord desktop app to complete the ${questName} quest.`,
 			);
 		} else if (taskName === 'PLAY_ACTIVITY') {
-			console.log(
-				'This quest not supported. Use the discord desktop app to complete the',
-				questName,
-				'quest!',
+			throw new Error(
+				`This quest is not supported. Use the Discord desktop app to complete the ${questName} quest.`,
 			);
 		} else {
-			console.log(
-				'Unknown quest type. Use the discord desktop app to complete the',
-				questName,
-				'quest!',
+			throw new Error(
+				`Unknown quest type. Use the Discord desktop app to complete the ${questName} quest.`,
 			);
 		}
 	}

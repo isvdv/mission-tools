@@ -32,7 +32,7 @@ export interface Quest {
 	 * The content areas where the quest can be shown
 	 * @deprecated
 	 */
-	targeted_content: number;
+	targeted_content: number | number[];
 	/**
 	 * Whether the quest is unreleased and in preview for Discord employees
 	 */
@@ -62,7 +62,7 @@ export interface QuestConfig {
 	/**
 	 * The quest features enabled for the quest
 	 */
-	features: number;
+	features: number | number[];
 	/**
 	 * The application metadata for the quest
 	 */
@@ -83,6 +83,11 @@ export interface QuestConfig {
 	 * The task configuration for the quest
 	 */
 	task_config: QuestTaskConfig;
+	/**
+	 * The newer task configuration payload. Discord currently sends both, but
+	 * keeping this lets runtime code fall back cleanly if one disappears.
+	 */
+	task_config_v2?: QuestTaskConfigV2;
 	/**
 	 * Specifies rewards for the quest (e.g. collectibles)
 	 */
@@ -268,7 +273,7 @@ export interface QuestTaskConfig {
 	/**
 	 * Tasks required to complete the quest, keyed by their event name
 	 */
-	tasks: Record<QuestTaskConfigType, QuestTask>;
+	tasks: Partial<Record<QuestTaskConfigType, QuestTask>>;
 	/**
 	 * A link to the third-party quest tasks enrollment page
 	 */
@@ -283,7 +288,8 @@ export interface QuestTask {
 	/**
 	 * The type of task event
 	 */
-	event_name: string;
+	event_name?: string;
+	type?: string;
 	/**
 	 * The required value
 	 */
@@ -300,6 +306,17 @@ export interface QuestTask {
 	 * The third-party task description
 	 */
 	description?: string;
+}
+
+export interface QuestTaskConfigV2 {
+	/**
+	 * Tasks required to complete the quest, keyed by their event name
+	 */
+	tasks: Partial<Record<QuestTaskConfigType, QuestTask>>;
+	/**
+	 * The eligibility operator used to join multiple tasks (and/or)
+	 */
+	join_operator: string;
 }
 
 export interface QuestRewardsConfig {

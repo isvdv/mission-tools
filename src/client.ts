@@ -51,18 +51,25 @@ async function makeRequest(
 }
 
 const originalSend = WebSocketShard.prototype.send;
+const questIdentifyTokens = new Set<string>();
+
 WebSocketShard.prototype.send = async function (payload: GatewaySendPayload) {
-	if (payload.op === GatewayOpcodes.Identify) {
+	if (payload.op === GatewayOpcodes.Identify && payload.d) {
+		const identifyData = payload.d as any;
+		if (!questIdentifyTokens.has(identifyData.token)) {
+			return originalSend.call(this, payload);
+		}
+
 		payload.d = {
-			token: payload.d.token,
+			token: identifyData.token,
 			properties: {
 				...Constants.Properties,
 				is_fast_connect: false,
 				gateway_connect_reasons: 'AppSkeleton',
 			},
 			capabilities: 0,
-			presence: payload.d.presence,
-			compress: payload.d.compress,
+			presence: identifyData.presence,
+			compress: identifyData.compress,
 			client_state: {
 				guild_versions: {},
 			},
@@ -75,6 +82,7 @@ export class ClientQuest extends Client {
 	public questManager: QuestManager | null = null;
 	public websocketManager: WebSocketManager;
 	constructor(token: string) {
+		questIdentifyTokens.add(token);
 		const rest = new REST({ version: '10', makeRequest }).setToken(token);
 		const gateway = new WebSocketManager({
 			token: token,
