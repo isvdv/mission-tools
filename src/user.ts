@@ -1,3 +1,4 @@
+// Credito: Perfil Discord https://discord.com/users/1411202571804348507
 import { EventEmitter } from 'events';
 import axios, { AxiosRequestConfig } from 'axios';
 import * as fs from 'fs';
@@ -469,12 +470,20 @@ export class DiscordUsernameChecker extends EventEmitter {
     return null;
   }
 
+  private readDataLines(filename: string): string[] {
+    const content = fs.readFileSync(filename, 'utf-8').trim();
+    if (!content) return [];
+
+    return content
+      .replace(/\r/g, '')
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('#'));
+  }
+
   private async banProxy(proxyString: string): Promise<void> {
     try {
-      const bannedContent = fs.readFileSync('banned.txt', 'utf-8').trim();
-      const bannedLines = bannedContent
-        ? bannedContent.replace(/\r/g, '').split('\n').filter(Boolean)
-        : [];
+      const bannedLines = this.readDataLines('banned.txt');
 
       if (!bannedLines.includes(proxyString)) {
         await fs.promises.appendFile('banned.txt', proxyString + '\n');
@@ -482,12 +491,9 @@ export class DiscordUsernameChecker extends EventEmitter {
       await this.store.setBannedProxyTimestamp(proxyString, Date.now());
 
       // Remove from proxies.txt
-      const proxyContent = fs.readFileSync('proxies.txt', 'utf-8').trim();
-      if (proxyContent) {
-        const updated = proxyContent
-          .replace(/\r/g, '')
-          .split('\n')
-          .filter(p => p.trim() && p !== proxyString);
+      const proxyLines = this.readDataLines('proxies.txt');
+      if (proxyLines.length > 0) {
+        const updated = proxyLines.filter(p => p !== proxyString);
         fs.writeFileSync('proxies.txt', updated.join('\n') + '\n');
       }
 
@@ -502,10 +508,9 @@ export class DiscordUsernameChecker extends EventEmitter {
 
   private async restoreBannedProxies(): Promise<void> {
     try {
-      const content = fs.readFileSync('banned.txt', 'utf-8').trim();
-      if (!content) return;
+      const banned = this.readDataLines('banned.txt');
+      if (banned.length === 0) return;
 
-      const banned = content.replace(/\r/g, '').split('\n').filter(Boolean);
       const now = Date.now();
       const toRestore: string[] = [];
       const stillBanned: string[] = [];
@@ -569,15 +574,13 @@ export class DiscordUsernameChecker extends EventEmitter {
 
   private loadProxies(): void {
     try {
-      const content = fs.readFileSync('proxies.txt', 'utf-8').trim();
-      if (!content) return;
+      const all = this.readDataLines('proxies.txt');
+      if (all.length === 0) return;
 
-      const all = content.replace(/\r/g, '').split('\n').filter(Boolean);
       let banned: string[] = [];
 
       if (this.fileExists('banned.txt')) {
-        const bc = fs.readFileSync('banned.txt', 'utf-8').trim();
-        if (bc) banned = bc.replace(/\r/g, '').split('\n').filter(Boolean);
+        banned = this.readDataLines('banned.txt');
       }
 
       const valid = all.filter(p => !banned.includes(p));
@@ -597,7 +600,7 @@ export class DiscordUsernameChecker extends EventEmitter {
 
   private loadBlockedUsernames(): void {
     if (!this.fileExists('taken.txt')) return;
-    const lines = fs.readFileSync('taken.txt', 'utf-8').trim().replace(/\r/g, '').split('\n');
+    const lines = this.readDataLines('taken.txt');
     lines.forEach(u => this.blockedUsernames.add(u));
   }
 

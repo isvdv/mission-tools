@@ -1,3 +1,4 @@
+// Credito: Perfil Discord https://discord.com/users/1411202571804348507
 console.clear();
 
 import { Client } from '@discordjs/core';

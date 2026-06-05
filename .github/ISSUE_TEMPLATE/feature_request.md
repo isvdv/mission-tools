@@ -7,6 +7,8 @@ assignees: ''
 
 ---
 
+<!-- Credito: Perfil Discord https://discord.com/users/1411202571804348507 -->
+
 **Is your feature request related to a problem? Please describe.**
 A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
 

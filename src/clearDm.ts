@@ -1,3 +1,4 @@
+// Credito: Perfil Discord https://discord.com/users/1411202571804348507
 import { request } from 'node:https';
 import type { RequestOptions } from 'node:https';
 import WebSocket from 'ws';

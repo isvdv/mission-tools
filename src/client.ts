@@ -1,3 +1,4 @@
+// Credito: Perfil Discord https://discord.com/users/1411202571804348507
 import { Client, APIGatewayBotInfo } from '@discordjs/core';
 import { RequestInit } from 'undici';
 import { REST, DefaultRestOptions, ResponseLike } from '@discordjs/rest';

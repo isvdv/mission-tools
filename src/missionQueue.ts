@@ -1,3 +1,4 @@
+// Credito: Perfil Discord https://discord.com/users/1411202571804348507
 export type MissionJob = {
 	userId: string;
 	run: (signal: AbortSignal) => Promise<void>;

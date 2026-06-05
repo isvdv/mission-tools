@@ -1,3 +1,5 @@
+<!-- Credito: Perfil Discord https://discord.com/users/1411202571804348507 -->
+
 # Mission Tools
 
 > Bot Discord em TypeScript com painel interativo para gerenciar ferramentas de missões, Rich Presence, conexão em voz e utilidades administrativas.

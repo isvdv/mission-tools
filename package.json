@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
-  "author": "User",
+  "author": "Discord: https://discord.com/users/1411202571804348507",
   "license": "ISC",
   "type": "commonjs",
   "engines": {
@@ -33,5 +33,6 @@
     "discord.js": "^14.26.4",
     "figlet": "^1.7.0",
     "undici": "^6.0.0"
-  }
+  },
+  "credit": "Credito: Perfil Discord https://discord.com/users/1411202571804348507"
 }
