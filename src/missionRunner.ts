@@ -7,6 +7,11 @@ export type MissionState = 'Waiting' | 'Running' | 'Completed' | 'Error';
 export type MissionStatusUpdate = {
 	state: MissionState;
 	currentMission?: string;
+	gameName?: string;
+	applicationId?: string;
+	gameIconUrl?: string;
+	largeImage?: string;
+	reward?: string;
 	currentIndex?: number;
 	totalMissions?: number;
 	queuePosition?: number;
@@ -21,16 +26,52 @@ export type MissionStatusReporter = (
 
 type MissionDetails = {
 	name: string;
+	gameName: string;
+	applicationId?: string;
+	gameIconUrl?: string;
+	largeImage?: string;
 	duration: number;
 	reward: string;
 };
 
-function getQuestData(quest: Quest): MissionDetails {
+type ApplicationDetails = {
+	id: string;
+	name: string;
+	icon?: string | null;
+};
+
+type MissionBatch = {
+	manager: Awaited<ReturnType<ClientQuest['fetchQuests']>>;
+	quests: Quest[];
+	applications: Map<string, ApplicationDetails>;
+};
+
+function applicationIconUrl(application?: ApplicationDetails): string | undefined {
+	if (!application?.id || !application.icon) return undefined;
+	const extension = application.icon.startsWith('a_') ? 'gif' : 'png';
+	return `https://cdn.discordapp.com/app-icons/${application.id}/${application.icon}.${extension}?size=256`;
+}
+
+function getQuestData(
+	quest: Quest,
+	application?: ApplicationDetails,
+): MissionDetails {
 	const questId = quest.id || quest.config?.id || 'unknown';
 	const name =
 		quest.config?.messages?.quest_name?.trim() ||
 		quest.config?.messages?.game_title?.trim() ||
 		questId;
+	const gameName =
+		quest.config?.messages?.game_title?.trim() ||
+		quest.config?.application?.name?.trim() ||
+		name;
+	const applicationId = quest.config?.application?.id;
+	const gameIconUrl = applicationIconUrl(application);
+	const largeImage =
+		gameIconUrl ||
+		quest.config?.assets?.game_tile ||
+		quest.config?.assets?.logotype ||
+		quest.config?.assets?.hero;
 	const tasks =
 		quest.config?.task_config?.tasks ?? quest.config?.task_config_v2?.tasks;
 	const firstTask = tasks ? Object.values(tasks)[0] : undefined;
@@ -42,7 +83,15 @@ function getQuestData(quest: Quest): MissionDetails {
 			? `${rewardConfig.orb_quantity} Orbs`
 			: 'Unknown reward');
 
-	return { name, duration, reward };
+	return {
+		name,
+		gameName,
+		applicationId,
+		gameIconUrl,
+		largeImage,
+		duration,
+		reward,
+	};
 }
 
 function toProgress(secondsDone?: number, secondsNeeded?: number): number {
@@ -61,6 +110,40 @@ function isAbortError(error: unknown, signal?: AbortSignal): boolean {
 	return Boolean(signal?.aborted) || error === signal?.reason;
 }
 
+async function fetchAvailableMissions(
+	questClient: ClientQuest,
+	ignoredQuestIds: Set<string>,
+): Promise<MissionBatch> {
+	const manager = await questClient.fetchQuests();
+	const quests = manager
+		.filterQuestsValid()
+		.filter((quest) => !ignoredQuestIds.has(quest.id));
+	const applicationIds = [
+		...new Set(
+			quests
+				.map((quest) => quest.config?.application?.id)
+				.filter((id): id is string => Boolean(id)),
+		),
+	];
+	const applications = new Map<string, ApplicationDetails>();
+	if (applicationIds.length > 0) {
+		try {
+			const response = await manager.getApplicationData(applicationIds);
+			response.forEach((application) => {
+				applications.set(application.id, application);
+			});
+		} catch (error) {
+			console.error('Could not fetch quest application metadata:', error);
+		}
+	}
+
+	return {
+		manager,
+		quests,
+		applications,
+	};
+}
+
 export async function runMissionFlow(
 	token: string,
 	reportStatus: MissionStatusReporter,
@@ -73,36 +156,67 @@ export async function runMissionFlow(
 	});
 
 	const questClient = new ClientQuest(token);
-	const manager = await questClient.fetchQuests();
-	signal?.throwIfAborted();
-	const quests = manager.filterQuestsValid();
-
-	if (quests.length === 0) {
-		await reportStatus(
-			{
-				state: 'Completed',
-				progress: 100,
-				detail: 'Nenhuma missao valida foi encontrada.',
-				totalMissions: 0,
-			},
-			true,
-		);
-		return;
-	}
-
 	let completed = 0;
 	let failed = 0;
+	const attemptedQuestIds = new Set<string>();
 
-	for (const [index, quest] of quests.entries()) {
+	while (true) {
 		signal?.throwIfAborted();
-		const details = getQuestData(quest);
-		const currentIndex = index + 1;
+		await reportStatus({
+			state: 'Waiting',
+			progress: completed > 0 || failed > 0 ? 100 : 0,
+			detail:
+				completed > 0 || failed > 0
+					? 'Buscando outra missao disponivel.'
+					: 'Buscando missoes disponiveis.',
+		});
+
+		const { manager, quests, applications } = await fetchAvailableMissions(
+			questClient,
+			attemptedQuestIds,
+		);
+		signal?.throwIfAborted();
+
+		if (quests.length === 0) {
+			const totalHandled = completed + failed;
+			await reportStatus(
+				{
+					state: failed > 0 ? 'Error' : 'Completed',
+					progress: 100,
+					totalMissions: totalHandled,
+					detail:
+						totalHandled === 0
+							? 'Nenhuma missao valida foi encontrada.'
+							: failed > 0
+								? `Finalizado com ${completed} concluidas e ${failed} com erro.`
+								: `Todas as ${completed} missoes foram concluidas.`,
+				},
+				true,
+			);
+			return;
+		}
+
+		const quest = quests[0];
+		attemptedQuestIds.add(quest.id);
+		const details = getQuestData(
+			quest,
+			quest.config?.application?.id
+				? applications.get(quest.config.application.id)
+				: undefined,
+		);
+		const currentIndex = completed + failed + 1;
+		const totalMissions = completed + failed + quests.length;
 
 		await reportStatus({
 			state: 'Running',
 			currentMission: details.name,
+			gameName: details.gameName,
+			applicationId: details.applicationId,
+			gameIconUrl: details.gameIconUrl,
+			largeImage: details.largeImage,
+			reward: details.reward,
 			currentIndex,
-			totalMissions: quests.length,
+			totalMissions,
 			progress: 0,
 			detail: `Recompensa: ${details.reward}`,
 		});
@@ -113,8 +227,13 @@ export async function runMissionFlow(
 				void reportStatus({
 					state: 'Running',
 					currentMission: details.name,
+					gameName: details.gameName,
+					applicationId: details.applicationId,
+					gameIconUrl: details.gameIconUrl,
+					largeImage: details.largeImage,
+					reward: details.reward,
 					currentIndex,
-					totalMissions: quests.length,
+					totalMissions,
 					progress: toProgress(update.secondsDone, update.secondsNeeded),
 					detail: update.message,
 				});
@@ -125,10 +244,15 @@ export async function runMissionFlow(
 				{
 					state: 'Completed',
 					currentMission: details.name,
+					gameName: details.gameName,
+					applicationId: details.applicationId,
+					gameIconUrl: details.gameIconUrl,
+					largeImage: details.largeImage,
+					reward: details.reward,
 					currentIndex,
-					totalMissions: quests.length,
+					totalMissions,
 					progress: 100,
-					detail: `Concluidas ${completed} de ${quests.length} missoes.`,
+					detail: `Missao concluida. Buscando outra missao disponivel.`,
 				},
 				true,
 			);
@@ -142,8 +266,13 @@ export async function runMissionFlow(
 				{
 					state: 'Error',
 					currentMission: details.name,
+					gameName: details.gameName,
+					applicationId: details.applicationId,
+					gameIconUrl: details.gameIconUrl,
+					largeImage: details.largeImage,
+					reward: details.reward,
 					currentIndex,
-					totalMissions: quests.length,
+					totalMissions,
 					progress: toProgress(0, details.duration),
 					detail: errorMessage(error),
 				},
@@ -151,17 +280,4 @@ export async function runMissionFlow(
 			);
 		}
 	}
-
-	await reportStatus(
-		{
-			state: failed > 0 ? 'Error' : 'Completed',
-			progress: 100,
-			totalMissions: quests.length,
-				detail:
-					failed > 0
-					? `Finalizado com ${completed} concluidas e ${failed} com erro.`
-					: `Todas as ${completed} missoes foram concluidas.`,
-		},
-		true,
-	);
 }

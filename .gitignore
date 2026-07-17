@@ -1,6 +1,6 @@
 # Credito: Perfil Discord https://discord.com/users/1411202571804348507
 # Logs
-logs
+/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -17,6 +17,7 @@ pids
 *.seed
 *.pid.lock
 data/
+web/data/
 banned.txt
 hits.txt
 proxies.txt
@@ -91,11 +92,15 @@ web_modules/
 
 # Next.js build output
 .next
+web/.next/
 out
 
 # Nuxt.js build / generate output
 .nuxt
 dist
+dist-desktop/
+desktop/mission-worker.cjs
+desktop/*.map
 
 # Gatsby files
 .cache/
@@ -140,4 +145,3 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
-

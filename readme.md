@@ -2,54 +2,57 @@
 
 # Mission Tools
 
-> Bot Discord em TypeScript com painel interativo para gerenciar ferramentas de missões, Rich Presence, conexão em voz e utilidades administrativas.
+Bot Discord em TypeScript com painel web e aplicativo Windows para controlar missoes, limpeza, voz, Rich Presence, verificador de usernames e utilidades administrativas.
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
 ![Discord.js](https://img.shields.io/badge/Discord.js-14.x-5865F2?logo=discord&logoColor=white)
-![License](https://img.shields.io/badge/licença-ver%20LICENSE-lightgrey)
-
----
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)
+![Electron](https://img.shields.io/badge/Electron-desktop-47848F?logo=electron&logoColor=white)
 
 ## Recursos
 
-| Recurso | Descrição |
+| Recurso | Descricao |
 |---|---|
-| `/mission-panel` | Painel principal interativo via slash command |
-| Controle de missões | Fila e gerenciamento por usuário |
-| Rich Presence | Atividade configurável com imagens e botões |
-| Conexão em voz | Entrada automática em canal de voz |
-| Verificador de usernames | Consulta e validação de nomes de usuário |
-| Persistência local | Configurações do painel salvas em JSON |
-
----
+| Bot Discord | Slash command `/mission-panel` e modulos administrativos |
+| Painel web | Dashboard Next.js com login por token, rotas internas e componentes compartilhados |
+| App Windows | Empacotamento Electron com instalador `.exe` |
+| Missoes | Fila, execucao e status em tempo real |
+| Rich Presence | Atividade configuravel com imagens, botoes e timestamps |
+| Voz | Entrada automatica em canal de voz |
+| Limpeza | Fluxos de limpeza de DM e utilidades administrativas |
+| Usernames | Verificacao de disponibilidade de usernames |
+| Persistencia local | Dados salvos em JSON, com tokens criptografados |
 
 ## Requisitos
 
-- **Node.js** 18 ou superior
-- **npm**
-- Aplicativo criado no [Discord Developer Portal](https://discord.com/developers/applications) com um bot e token válido
+- Node.js 18 ou superior
+- npm
+- Aplicativo criado no Discord Developer Portal
+- Token valido do bot
 
----
-
-## Instalação
-
-**1. Clone o repositório**
+## Instalacao
 
 ```bash
 git clone https://github.com/luizpauloteam-dot/mission-tools.git
 cd mission-tools
+npm install
+npm run web:install
 ```
 
-**2. Instale as dependências**
+Crie o arquivo `.env` a partir do exemplo:
 
 ```bash
-npm install
+copy .env.example .env
 ```
 
-**3. Configure as variáveis de ambiente**
+No PowerShell, tambem pode usar:
 
-Crie um arquivo `.env` na raiz do projeto com as variáveis obrigatórias:
+```powershell
+Copy-Item .env.example .env
+```
+
+Depois preencha as variaveis principais:
 
 ```env
 BOT_TOKEN=seu_token_do_bot
@@ -57,93 +60,133 @@ GUILD_ID=id_do_servidor
 APPLICATION_ID=id_da_aplicacao
 ```
 
-<details>
-<summary>Variáveis opcionais</summary>
+## Variaveis De Ambiente
 
-```env
-# Alias para APPLICATION_ID (alguns módulos usam este nome)
-CLIENT_ID=id_da_aplicacao
-
-# Rich Presence
-RICH_PRESENCE_APPLICATION_ID=id_da_aplicacao_para_assets
-RICH_PRESENCE_ASSET_CHANNEL_ID=id_do_canal_para_assets
-
-# Caminhos de armazenamento local
-PANEL_STORE_PATH=data/panel-store.json
-TOKEN_STORE_PATH=data/mission-tokens.json
-
-# Chave de criptografia para tokens salvos
-TOKEN_STORE_SECRET=uma_chave_secreta_forte
-
-# Controle de limpeza de DMs
-BASE_DELETE_DELAY_MS=700
-DISCORD_CLEANUP_VERBOSE=false
-
-# Usuários e amizades com permissões especiais (IDs separados por vírgula)
-WHITELISTED_USERS=
-WHITELISTED_FRIENDSHIPS=
-```
-
-</details>
-
----
+| Variavel | Obrigatoria | Uso |
+|---|---:|---|
+| `BOT_TOKEN` | Sim | Token do bot Discord |
+| `GUILD_ID` | Sim | Servidor principal usado pelo bot |
+| `APPLICATION_ID` | Sim | ID da aplicacao Discord |
+| `CLIENT_ID` | Nao | Alias para `APPLICATION_ID` em alguns modulos |
+| `TOKEN_STORE_SECRET` | Recomendado | Criptografia dos tokens salvos pelo painel |
+| `WEB_SESSION_SECRET` | Recomendado | Assinatura da sessao web |
+| `WEB_BASE_URL` | Nao | URL base do painel web |
+| `RICH_PRESENCE_APPLICATION_ID` | Nao | Aplicacao usada para assets do Rich Presence |
+| `RICH_PRESENCE_ASSET_CHANNEL_ID` | Nao | Canal usado para assets do Rich Presence |
+| `PANEL_STORE_PATH` | Nao | Caminho do JSON do painel do bot |
+| `TOKEN_STORE_PATH` | Nao | Caminho do JSON de tokens criptografados |
+| `WEB_LOG_STORE_PATH` | Nao | Caminho dos logs do painel web |
+| `WEB_SETTINGS_STORE_PATH` | Nao | Caminho das configuracoes do painel web |
+| `BASE_DELETE_DELAY_MS` | Nao | Delay base da limpeza de DMs |
+| `DISCORD_CLEANUP_VERBOSE` | Nao | Logs detalhados da limpeza |
+| `WHITELISTED_USERS` | Nao | IDs liberados, separados por virgula |
+| `WHITELISTED_FRIENDSHIPS` | Nao | IDs de amizades liberadas, separados por virgula |
 
 ## Scripts
 
 ```bash
-npm start          # Inicia o bot em produção
-npm run dev        # Inicia em modo desenvolvimento (hot reload)
-npm run typecheck  # Verifica os tipos TypeScript sem compilar
+npm start                 # Inicia somente o bot
+npm run dev               # Inicia o bot em desenvolvimento
+npm run app               # Inicia bot e painel web juntos
+npm run web:dev           # Inicia somente o painel web
+npm run typecheck         # Verifica TypeScript do bot
+npm run web:typecheck     # Verifica TypeScript do painel
+npm run desktop:dev       # Abre o app Electron em modo local
+npm run desktop:dist      # Gera o instalador .exe
 ```
 
----
+## Painel Web
 
-## Deploy na Discloud
+Para rodar o painel no navegador:
 
-O projeto já inclui `discloud.config`. Antes de enviar, confirme que os campos principais estão corretos:
-
+```bash
+npm run web:dev
 ```
+
+Abra:
+
+```txt
+http://localhost:3000
+```
+
+O painel usa login por token. O token e validado no Discord, salvo criptografado no servidor e nao e retornado para o frontend.
+
+## App Windows `.exe`
+
+Para gerar o instalador:
+
+```bash
+npm run desktop:dist
+```
+
+O arquivo final fica em:
+
+```txt
+dist-desktop/Mission Tools Setup 1.0.0.exe
+```
+
+O app desktop:
+
+- abre o painel em uma janela propria;
+- inicia o servidor Next.js interno automaticamente;
+- usa o worker de missoes empacotado;
+- salva dados locais em `%APPDATA%/Mission Tools`;
+- carrega `.env` ao lado do `.exe` ou em `%APPDATA%/Mission Tools/.env`, quando existir.
+
+O instalador e a pasta `dist-desktop/` sao artefatos gerados e nao devem ser commitados no Git. Para distribuir o `.exe`, prefira publicar em uma Release do GitHub.
+
+## PWA
+
+O painel tambem foi preparado como PWA. Depois de iniciar com:
+
+```bash
+npm run app
+```
+
+Abra `http://localhost:3000` e use a opcao de instalar do navegador ou o botao **Instalar** no topo do painel quando ele aparecer.
+
+## Deploy Na Discloud
+
+O projeto inclui `discloud.config`. Antes de enviar, confirme os campos principais:
+
+```txt
 MAIN=bot.ts
 START=npm start
 ```
 
 Depois envie pelo painel ou pela CLI da Discloud.
 
----
+## Seguranca
 
-## Controle de versão
+- Nunca suba `.env`, tokens, secrets ou arquivos gerados em `data/`.
+- Se um token foi commitado por engano, revogue e gere outro no Discord Developer Portal.
+- Use `TOKEN_STORE_SECRET` e `WEB_SESSION_SECRET` fortes em ambientes reais.
+- O `.gitignore` ja ignora `.env`, `data/`, `node_modules/`, builds do Next, `dist-desktop/` e o worker desktop gerado.
 
-Certifique-se de que o `.gitignore` inclui todos os arquivos sensíveis e gerados antes de qualquer commit:
+## Validacao Recomendada
 
-```gitignore
-# Ambiente e segredos
-.env
+Antes de publicar alteracoes:
 
-# Dados locais gerados em runtime
-data/
-
-# Dependências
-node_modules/
-
-# Arquivos gerados por ferramentas internas
-banned.txt
-hits.txt
-proxies.txt
-taken.txt
+```bash
+npm run typecheck
+npm run web:typecheck
+npm run web:build
 ```
 
-Fluxo básico para subir alterações:
+Para validar o instalador:
+
+```bash
+npm run desktop:dist
+```
+
+## Git
 
 ```bash
 git add -A
-git commit -m "feat: descrição da alteração"
+git commit -m "feat: update mission tools desktop app"
 git push -u origin main
 ```
 
-> **Atenção:** se um token ou segredo foi enviado por engano, revogue e regenere imediatamente no Discord Developer Portal.
+## Licenca
 
----
-
-## Licença
-
-Consulte o arquivo [`LICENSE`](./LICENSE).
+Consulte o arquivo [LICENSE](./LICENSE).

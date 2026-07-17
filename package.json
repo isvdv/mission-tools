@@ -2,23 +2,77 @@
   "name": "discord-quest-selfbot",
   "version": "1.0.0",
   "description": "Quest Bot Auto Claim",
-  "main": "index.js",
+  "main": "electron/main.cjs",
+  "productName": "Mission Tools",
   "scripts": {
+    "app": "node scripts/start-app.mjs",
+    "app:dev": "node scripts/start-app.mjs",
     "build": "echo \"No build step required\"",
+    "desktop:build-worker": "node scripts/build-mission-worker.mjs",
+    "desktop:prepare": "npm run web:build && npm run desktop:build-worker && node scripts/prepare-desktop.mjs",
+    "desktop:dev": "npm run desktop:prepare && electron .",
+    "desktop:pack": "npm run desktop:prepare && electron-builder --win --x64 --dir",
+    "desktop:dist": "npm run desktop:prepare && electron-builder --win nsis --x64",
     "start": "tsx --env-file=.env bot.ts",
     "dev": "tsx bot.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "web:install": "npm install --prefix web",
+    "web:dev": "npm run dev --prefix web",
+    "web:build": "npm run build --prefix web",
+    "web:typecheck": "npm run typecheck --prefix web"
   },
-  "keywords": [],
   "author": "Discord: https://discord.com/users/1411202571804348507",
   "license": "ISC",
   "type": "commonjs",
   "engines": {
     "node": ">=18"
   },
+  "build": {
+    "appId": "com.missiontools.desktop",
+    "productName": "Mission Tools",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "afterPack": "scripts/electron-after-pack.cjs",
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "web/.next/standalone",
+        "to": "next-standalone",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "desktop/mission-worker.cjs",
+        "to": "mission-worker.cjs"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
   "devDependencies": {
     "@types/figlet": "^1.5.8",
     "@types/node": "^20.10.0",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   },

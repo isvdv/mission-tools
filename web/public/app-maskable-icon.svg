@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Mission Tools</title>
+  <desc id="desc">Icone adaptavel do aplicativo Mission Tools</desc>
+  <rect width="512" height="512" fill="#070a12"/>
+  <circle cx="256" cy="256" r="206" fill="#0f172a"/>
+  <path d="M136 170c0-22.1 17.9-40 40-40h160c22.1 0 40 17.9 40 40v72H136v-72Z" fill="#22d3ee"/>
+  <path d="M136 242h240v100c0 22.1-17.9 40-40 40H176c-22.1 0-40-17.9-40-40V242Z" fill="#1e293b"/>
+  <path d="M202 310h108" stroke="#f8fafc" stroke-width="28" stroke-linecap="round"/>
+  <path d="M256 188v148" stroke="#070a12" stroke-width="24" stroke-linecap="round"/>
+  <circle cx="178" cy="178" r="16" fill="#070a12"/>
+  <circle cx="334" cy="178" r="16" fill="#070a12"/>
+</svg>
