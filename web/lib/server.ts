@@ -13,12 +13,25 @@ export function jsonFail(message: string, error?: unknown, status = 400) {
   return NextResponse.json(fail(message, error), { status });
 }
 
+function shouldUseSecureCookies() {
+  const baseUrl = process.env.WEB_BASE_URL;
+  if (baseUrl) {
+    try {
+      return new URL(baseUrl).protocol === 'https:';
+    } catch {
+      return process.env.NODE_ENV === 'production';
+    }
+  }
+
+  return process.env.NODE_ENV === 'production';
+}
+
 export async function setSessionCookie(value: string) {
   const cookieStore = await cookies();
   cookieStore.set(WEB_SESSION_COOKIE, value, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: shouldUseSecureCookies(),
     maxAge: WEB_SESSION_MAX_AGE_SECONDS,
     path: '/'
   });
