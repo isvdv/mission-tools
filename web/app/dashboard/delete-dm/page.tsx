@@ -12,7 +12,7 @@ export default function DeleteDmPage() {
       <Card>
         <AlertTriangle className="mb-3 h-6 w-6 text-amber-300" />
         <p className="text-sm text-slate-300">
-          TODO: esta acao precisa acessar o client ativo do bot para listar e apagar mensagens do painel. A rota da API ja existe e registra logs, mas a ponte com o bot em execucao ainda precisa ser conectada.
+          Esta limpeza depende da sessao ativa do bot no Discord. Use o painel por DM enquanto a conexao direta com o app desktop nao estiver disponivel.
         </p>
       </Card>
       <ModuleActionPanel kind="delete-dm" />

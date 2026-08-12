@@ -16,7 +16,7 @@ export class CleanService {
 		return (
 			statuses.get(userId) ?? {
 				state: 'inactive',
-				message: 'No cleanup started from the web dashboard.',
+				message: 'Nenhuma limpeza iniciada pelo painel web.',
 				updatedAt: new Date().toISOString(),
 			}
 		);
@@ -36,7 +36,7 @@ export class CleanService {
 		this.setStatus(userId, {
 			state: 'running',
 			targetUserId: options.targetUserId,
-			message: 'Cleanup started from web dashboard.',
+			message: 'Limpeza iniciada pelo painel web.',
 		});
 
 		void runDiscordDmCleanup({
@@ -48,7 +48,7 @@ export class CleanService {
 				this.setStatus(userId, {
 					state: 'completed',
 					targetUserId: options.targetUserId,
-					message: 'Cleanup completed.',
+					message: 'Limpeza concluida.',
 				});
 			})
 			.catch((error: unknown) => {
@@ -70,16 +70,16 @@ export class CleanService {
 		if (!controller) {
 			this.setStatus(userId, {
 				state: 'inactive',
-				message: 'No active cleanup to stop.',
+				message: 'Nenhuma limpeza ativa para cancelar.',
 			});
 			return this.getStatus(userId);
 		}
 
-		controller.abort('Cleanup stopped from web dashboard.');
+		controller.abort('Limpeza cancelada pelo painel web.');
 		controllers.delete(userId);
 		this.setStatus(userId, {
 			state: 'stopped',
-			message: 'Cleanup stopped from web dashboard.',
+			message: 'Limpeza cancelada pelo painel web.',
 		});
 		return this.getStatus(userId);
 	}

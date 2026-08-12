@@ -1,87 +1,79 @@
-# Mission Tools Web Dashboard
+# Painel Web Mission Tools
 
-This folder adds a Next.js dashboard for the existing Mission Tools bot.
+Painel Next.js usado pelo Mission Tools para controlar os modulos do bot pelo navegador, PWA ou app desktop.
 
-## What Was Added
+## Recursos
 
-- Token-only login page.
-- Encrypted token storage through the existing `TokenStore`.
-- Signed HTTP-only session cookie.
-- Dashboard pages for Mission, Clean, Voice, Rich Presence, Username Checker, Delete Bot DM, Logs and Settings.
-- Internal API routes with standardized JSON responses.
-- Shared service layer in `src/services`.
-- File-based logs in `data/web-logs.json`.
+- Login por token do Discord.
+- Armazenamento criptografado dos tokens no servidor local.
+- Sessao HTTP-only assinada.
+- Dashboard para missoes, limpeza, voz, Rich Presence, usernames, logs e configuracoes.
+- Rotas internas de API com respostas padronizadas.
+- Logs salvos em `data/web-logs.json`.
 
-## Run
+## Rodar Localmente
 
-From the project root:
+Na raiz do projeto:
 
 ```bash
 npm run app
 ```
 
-This starts the Discord bot and the web dashboard together.
+Esse comando inicia o bot e o painel web juntos.
 
-To run only the dashboard:
+Para abrir somente o painel:
 
 ```bash
 npm run web:install
 npm run web:dev
 ```
 
-Open:
+Depois acesse:
 
 ```txt
 http://localhost:3000
 ```
 
-The Discord bot still runs separately:
+Para iniciar somente o bot:
 
 ```bash
 npm start
 ```
 
-## Installable App
+## App Windows
 
-### Windows `.exe`
-
-From the project root:
+Para gerar o instalador:
 
 ```bash
 npm run desktop:dist
 ```
 
-The installer is generated at:
+O instalador fica em:
 
 ```txt
 dist-desktop/Mission Tools Setup 1.0.0.exe
 ```
 
-The desktop app starts the bundled Next.js server automatically and stores local data under `%APPDATA%/Mission Tools`.
+O app desktop inicia o servidor interno do Next.js automaticamente e salva os dados locais em `%APPDATA%/Mission Tools`.
 
-### PWA
+## PWA
 
-The dashboard is configured as a PWA with a web manifest, app icons, service worker and offline fallback. Start it, open `http://localhost:3000`, then use the browser install option or the **Instalar** button in the dashboard top bar when available.
+O painel tambem pode ser instalado pelo navegador. Inicie o projeto, abra `http://localhost:3000` e use a opcao de instalacao do navegador ou o botao **Instalar** no topo do painel.
 
-## Environment
+## Ambiente
 
-Copy `.env.example` to `.env` in the project root and fill the values.
+Crie um `.env` na raiz do projeto a partir do `.env.example` e preencha as variaveis necessarias.
 
-Important web variables:
+Variaveis importantes para o painel:
 
-- `TOKEN_STORE_SECRET`: encrypts submitted tokens.
-- `WEB_SESSION_SECRET`: signs browser sessions.
-- `WEB_BASE_URL`: used for logout redirects.
+- `TOKEN_STORE_SECRET`: criptografa os tokens enviados pelo painel.
+- `WEB_SESSION_SECRET`: assina as sessoes do navegador.
+- `WEB_BASE_URL`: define a URL base usada em redirects.
 
-## Security Notes
+## Seguranca
 
-- The dashboard only supports token login.
-- Submitted tokens are validated with `/users/@me`.
-- Tokens are stored encrypted server-side and are not returned to the frontend.
-- Sensitive APIs validate the signed session and the stored token before actions.
-- Server-specific routes verify administrator or manage-server permission when a guild ID is supplied.
-
-## TODO
-
-- Wire `Delete Bot DM` to the live Discord bot client. The API route and logging are present, but deleting bot panel DMs needs a bridge to the running `discord.js` client.
-- Gradually replace the remaining Discord panel handlers in `bot.ts` with direct calls to the new shared services.
+- O painel aceita somente login por token.
+- O token enviado e validado em `/users/@me`.
+- Tokens ficam criptografados no servidor e nao sao retornados ao frontend.
+- APIs sensiveis validam sessao assinada e token salvo antes de executar acoes.
+- Rotas ligadas a servidor verificam permissoes quando um `guildId` e informado.
