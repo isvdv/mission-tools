@@ -15,6 +15,14 @@ type AcceptedToken = {
 
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 const SESSION_SEPARATOR = '.';
+const TOKEN_VALIDATION_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type TokenValidationCacheEntry = {
+	token: string;
+	expiresAt: number;
+};
+
+const tokenValidationCache = new Map<string, TokenValidationCacheEntry>();
 
 function sessionSecret(): string {
 	return (
@@ -48,7 +56,26 @@ function cleanSubmittedToken(token: string): string {
 		.trim()
 		.replace(/^["']|["']$/g, '')
 		.replace(/^Authorization:\s*/i, '')
+		.replace(/^Bearer\s+/i, '')
 		.trim();
+}
+
+function rememberTokenValidation(userId: string, token: string): void {
+	tokenValidationCache.set(userId, {
+		token,
+		expiresAt: Date.now() + TOKEN_VALIDATION_CACHE_TTL_MS,
+	});
+}
+
+function hasFreshTokenValidation(userId: string, token: string): boolean {
+	const cached = tokenValidationCache.get(userId);
+	if (!cached) return false;
+	if (cached.expiresAt <= Date.now()) {
+		tokenValidationCache.delete(userId);
+		return false;
+	}
+
+	return cached.token === token;
 }
 
 async function validateAcceptedToken(token: string): Promise<AcceptedToken | null> {
@@ -92,6 +119,7 @@ export class AuthService {
 		}
 
 		await this.tokenStore.set(acceptedToken.userId, acceptedToken.token);
+		rememberTokenValidation(acceptedToken.userId, acceptedToken.token);
 		return {
 			userId: acceptedToken.userId,
 			createdAt: Date.now(),
@@ -124,18 +152,22 @@ export class AuthService {
 	async requireToken(userId: string): Promise<string> {
 		const token = await this.tokenStore.get(userId);
 		if (!token) throw new Error('Token not configured.');
+		if (hasFreshTokenValidation(userId, token)) return token;
 
 		const validation = await validateDiscordToken(token);
 		if (!validation.valid || validation.userId !== userId) {
 			await this.tokenStore.delete(userId);
+			tokenValidationCache.delete(userId);
 			throw new Error('Stored token is invalid. Login again.');
 		}
 
+		rememberTokenValidation(userId, token);
 		return token;
 	}
 
 	async logout(userId: string): Promise<void> {
 		await this.tokenStore.delete(userId);
+		tokenValidationCache.delete(userId);
 	}
 }
 

@@ -22,6 +22,7 @@ export type DiscordVoiceChannel = {
 const API_BASE_URL = 'https://discord.com/api/v10';
 const ADMINISTRATOR = 0x8n;
 const MANAGE_GUILD = 0x20n;
+const DISCORD_FETCH_TIMEOUT_MS = 15000;
 
 function headers(token: string): HeadersInit {
   return {
@@ -29,6 +30,27 @@ function headers(token: string): HeadersInit {
     'Content-Type': 'application/json',
     'User-Agent': 'Mission-Tools-Web/1.0'
   };
+}
+
+async function discordFetch(token: string, path: string): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DISCORD_FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(`${API_BASE_URL}${path}`, {
+      headers: headers(token),
+      cache: 'no-store',
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Tempo esgotado ao acessar o Discord.');
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function avatarUrl(account: DiscordAccount): string {
@@ -39,19 +61,13 @@ export function avatarUrl(account: DiscordAccount): string {
 }
 
 export async function fetchCurrentAccount(token: string): Promise<DiscordAccount> {
-  const response = await fetch(`${API_BASE_URL}/users/@me`, {
-    headers: headers(token),
-    cache: 'no-store'
-  });
+  const response = await discordFetch(token, '/users/@me');
   if (!response.ok) throw new Error('Nao foi possivel carregar a conta do Discord.');
   return (await response.json()) as DiscordAccount;
 }
 
 export async function fetchManageableGuilds(token: string): Promise<DiscordGuild[]> {
-  const response = await fetch(`${API_BASE_URL}/users/@me/guilds`, {
-    headers: headers(token),
-    cache: 'no-store'
-  });
+  const response = await discordFetch(token, '/users/@me/guilds');
   if (!response.ok) throw new Error('Nao foi possivel carregar os servidores.');
 
   const guilds = (await response.json()) as DiscordGuild[];
@@ -65,10 +81,7 @@ export async function fetchVoiceChannels(
   token: string,
   guildId: string
 ): Promise<DiscordVoiceChannel[]> {
-  const response = await fetch(`${API_BASE_URL}/guilds/${guildId}/channels`, {
-    headers: headers(token),
-    cache: 'no-store'
-  });
+  const response = await discordFetch(token, `/guilds/${guildId}/channels`);
   if (!response.ok) return [];
 
   const channels = (await response.json()) as DiscordVoiceChannel[];

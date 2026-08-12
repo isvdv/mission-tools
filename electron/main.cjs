@@ -194,8 +194,20 @@ function createMainWindow() {
     }
   });
 
+  const isInternalAppUrl = (url) => {
+    try {
+      const parsedUrl = new URL(url);
+      return (
+        parsedUrl.protocol === 'http:' &&
+        ['127.0.0.1', 'localhost', '[::1]'].includes(parsedUrl.hostname)
+      );
+    } catch {
+      return false;
+    }
+  };
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://127.0.0.1:')) {
+    if (isInternalAppUrl(url)) {
       return { action: 'allow' };
     }
 
@@ -204,7 +216,7 @@ function createMainWindow() {
   });
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith('http://127.0.0.1:')) {
+    if (!isInternalAppUrl(url)) {
       event.preventDefault();
       shell.openExternal(url);
     }
