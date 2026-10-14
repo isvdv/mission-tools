@@ -8,7 +8,14 @@ const cancelPath = path.join(directory, 'mission-cancel', `${userId}.json`);
 async function writeStatus(payload) {
   const temporaryPath = `${statusPath}.fixture.tmp`;
   await fs.writeFile(temporaryPath, JSON.stringify(payload));
-  await fs.rename(temporaryPath, statusPath);
+  // Same Windows sharing-violation retry as persistMissionStatus: the test polls this file.
+  for (let attempt = 1; ; attempt += 1) {
+    try { await fs.rename(temporaryPath, statusPath); return; }
+    catch (error) {
+      if (!['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt >= 50) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
 }
 
 async function main() {

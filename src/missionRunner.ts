@@ -33,6 +33,8 @@ export type AvailableMission = {
 	gameIconUrl?: string;
 	largeImage?: string;
 	reward: string;
+	/** Orbs awarded on completion; 0 when the quest pays something else. */
+	orbs: number;
 	taskType?: QuestTaskConfigType;
 	duration: number;
 	progress: number;
@@ -115,12 +117,12 @@ function getQuestData(
 		quest.config?.task_config?.tasks ?? quest.config?.task_config_v2?.tasks;
 	const firstTask = tasks ? Object.values(tasks)[0] : undefined;
 	const duration = firstTask?.target ?? 0;
-	const rewardConfig = quest.config?.rewards_config?.rewards?.[0];
+	const orbs = orbQuantity(quest);
 	const reward =
-		rewardConfig?.messages?.name ??
-		(rewardConfig?.orb_quantity
-			? `${rewardConfig.orb_quantity} Orbs`
-			: 'Unknown reward');
+		orbs > 0
+			? `${orbs} Orbs`
+			: quest.config?.rewards_config?.rewards?.[0]?.messages?.name ??
+				'Recompensa desconhecida';
 
 	return {
 		name,
@@ -155,6 +157,24 @@ function getQuestTask(quest: Quest): {
 		duration: 0,
 		secondsDone: 0,
 	};
+}
+
+/** Highest Orb payout among the quest's reward tiers. */
+function orbQuantity(quest: Quest): number {
+	const rewards = quest.config?.rewards_config?.rewards ?? [];
+	return rewards.reduce(
+		(max, reward) => Math.max(max, reward.orb_quantity ?? 0),
+		0,
+	);
+}
+
+// Only Orb quests are worth running; other rewards (avatar decorations,
+// Nitro trials, in-game items) are skipped by the queue.
+function questUnavailableReason(quest: Quest): string | undefined {
+	return (
+		unavailableReason(getQuestTask(quest).taskType) ??
+		(orbQuantity(quest) > 0 ? undefined : 'Essa missão não dá Orbs.')
+	);
 }
 
 function unavailableReason(taskType?: QuestTaskConfigType): string | undefined {
@@ -228,7 +248,7 @@ export async function listAvailableMissions(
 		new Set(),
 	);
 
-	return quests.map((quest) => {
+	const missions = quests.map((quest) => {
 		const details = getQuestData(
 			quest,
 			quest.config?.application?.id
@@ -236,11 +256,12 @@ export async function listAvailableMissions(
 				: undefined,
 		);
 		const task = getQuestTask(quest);
-		const reason = unavailableReason(task.taskType);
+		const reason = questUnavailableReason(quest);
 
 		return {
 			id: quest.id,
 			...details,
+			orbs: orbQuantity(quest),
 			taskType: task.taskType,
 			duration: task.duration,
 			progress: toProgress(task.secondsDone, task.duration),
@@ -249,6 +270,11 @@ export async function listAvailableMissions(
 			enrolled: quest.isEnrolledQuest(),
 		};
 	});
+
+	// Runnable Orb missions first, biggest payout on top.
+	return missions.sort(
+		(a, b) => Number(b.available) - Number(a.available) || b.orbs - a.orbs,
+	);
 }
 
 export async function runMissionFlow(
@@ -290,13 +316,18 @@ export async function runMissionFlow(
 		);
 		signal?.throwIfAborted();
 
-		const runnableQuests = quests.filter((candidate) => !unavailableReason(getQuestTask(candidate).taskType));
+		const runnableQuests = quests
+			.filter((candidate) => !questUnavailableReason(candidate))
+			.sort((a, b) => orbQuantity(b) - orbQuantity(a));
 		const selectedQuest = targetMissionId
-			? quests.find((candidate) => candidate.id === targetMissionId)
+			? runnableQuests.find((candidate) => candidate.id === targetMissionId)
 			: runnableQuests[0];
 
 		if (!selectedQuest) {
 			const totalHandled = completed + failed;
+			const target = targetMissionId
+				? quests.find((candidate) => candidate.id === targetMissionId)
+				: undefined;
 			await reportStatus(
 				{
 					state: targetMissionId || failed > 0 ? 'Error' : 'Completed',
@@ -304,9 +335,10 @@ export async function runMissionFlow(
 					totalMissions: totalHandled,
 					detail:
 						targetMissionId
-							? 'A missao selecionada nao esta disponivel para este usuario.'
+							? (target && questUnavailableReason(target)) ??
+								'A missão selecionada não está disponível para este usuário.'
 							: totalHandled === 0
-							? 'Nenhuma missao valida foi encontrada.'
+							? 'Nenhuma missão com Orbs foi encontrada.'
 							: failed > 0
 								? `Finalizado com ${completed} concluidas e ${failed} com erro.`
 								: `Todas as ${completed} missoes foram concluidas.`,

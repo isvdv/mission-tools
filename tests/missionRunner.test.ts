@@ -7,13 +7,14 @@ import { QuestManager } from '../src/questManager';
 import { QuestTaskConfigType, type Quest as QuestShape } from '../src/interface';
 import { runMissionFlow, type MissionStatusUpdate } from '../src/missionRunner';
 
-function quest(id: string, task = QuestTaskConfigType.WATCH_VIDEO) {
+function quest(id: string, task = QuestTaskConfigType.WATCH_VIDEO, orbs = 100) {
 	return Quest.create({
 		id,
 		config: {
 			id, expires_at: '2099-01-01',
 			messages: { quest_name: `Mission ${id}` },
 			task_config: { tasks: { [task]: { target: 60 } } },
+			rewards_config: { rewards: [{ orb_quantity: orbs, messages: { name: orbs ? `${orbs} Orbs` : 'Avatar decoration' } }] },
 		},
 		user_status: null,
 	} as QuestShape);
@@ -30,6 +31,22 @@ test('a stale catalog cannot repeat a mission; unsupported tasks are skipped', a
 	assert.deepEqual(attempted, ['1', '3']);
 	assert.equal(updates.at(-1)?.state, 'Completed');
 	assert.equal(updates.filter((update) => update.state === 'Completed').length, 1);
+});
+
+test('only Orb missions run, biggest payout first', async (t) => {
+	const quests = [quest('decoration', QuestTaskConfigType.WATCH_VIDEO, 0), quest('small', QuestTaskConfigType.WATCH_VIDEO, 200), quest('big', QuestTaskConfigType.WATCH_VIDEO, 700)];
+	const manager = new QuestManager({} as ClientQuest, quests);
+	t.mock.method(ClientQuest.prototype, 'fetchQuests', async () => manager);
+	const attempted: string[] = [];
+	t.mock.method(manager, 'doingQuest', async (item: Quest) => { attempted.push(item.id); });
+	await runMissionFlow('test-token', () => undefined);
+	assert.deepEqual(attempted, ['big', 'small']);
+
+	const updates: MissionStatusUpdate[] = [];
+	await runMissionFlow('test-token', (update) => { updates.push(update); }, undefined, { missionId: 'decoration' });
+	assert.deepEqual(attempted, ['big', 'small']);
+	assert.equal(updates.at(-1)?.state, 'Error');
+	assert.match(updates.at(-1)?.detail ?? '', /não dá Orbs/);
 });
 
 test('a stalled mission is cancelled once and the next mission runs', async (t) => {
