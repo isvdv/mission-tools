@@ -3,10 +3,10 @@ import { jsonFail, jsonOk, requireWebAuth } from '@/lib/server';
 
 export async function GET() {
   try {
-    await requireWebAuth();
-    const logs = await logService.list(100);
+    const auth = await requireWebAuth();
+    const logs = await logService.list(auth.userId, 100);
     return jsonOk('Logs carregados.', { logs });
   } catch (error) {
-    return jsonFail('Nao foi possivel carregar os logs.', error, 401);
+    return jsonFail('Nao foi possivel carregar os logs.', error, 500);
   }
 }

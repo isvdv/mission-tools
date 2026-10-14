@@ -2,9 +2,20 @@
 
 export function Toast({ message, tone = 'neutral' }: { message: string; tone?: 'neutral' | 'error' | 'success' }) {
   const colors = {
-    neutral: 'border-white/10 bg-panel text-white',
-    error: 'border-rose-400/30 bg-rose-500/15 text-rose-100',
-    success: 'border-emerald-400/30 bg-emerald-500/15 text-emerald-100'
+    neutral: 'border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--text-primary)]',
+    error: 'border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger)]',
+    success: 'border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success)]'
   };
-  return <div className={`rounded-lg border px-4 py-3 text-sm shadow-glow ${colors[tone]}`}>{message}</div>;
+  const labels = {
+    neutral: 'INFO',
+    error: 'ERROR',
+    success: 'SUCCESS'
+  };
+
+  return (
+    <div className={`rounded-[var(--radius-sm)] border px-4 py-3 text-sm shadow-none ${colors[tone]}`}>
+      <span className="mr-2 font-mono text-xs text-[var(--text-muted)]">{labels[tone]}</span>
+      {message}
+    </div>
+  );
 }

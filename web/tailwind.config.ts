@@ -1,19 +1,24 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  content: {
+    relative: true,
+    files: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}']
+  },
   theme: {
     extend: {
       colors: {
-        ink: '#070A12',
-        panel: '#111827',
-        line: '#253047',
-        cyanSoft: '#6EE7F9',
-        violetSoft: '#A78BFA',
-        blueSoft: '#60A5FA'
+        ink: '#15191f',
+        panel: '#1c222b',
+        line: '#35404e',
+        graphite: '#232b36',
+        accent: '#9bbcff',
+        success: '#78d6ab',
+        warning: '#F4C95D',
+        danger: '#FF5D73'
       },
       boxShadow: {
-        glow: '0 20px 80px rgba(96, 165, 250, 0.18)'
+        glow: '0 0 0 1px rgba(57, 255, 136, 0.08)'
       }
     }
   },

@@ -16,6 +16,7 @@
     "start": "tsx --env-file=.env bot.ts",
     "dev": "tsx bot.ts",
     "typecheck": "tsc --noEmit",
+    "test:mission": "tsx --test tests/missionRunner.test.ts tests/missionService.test.ts",
     "web:install": "npm install --prefix web",
     "web:dev": "npm run dev --prefix web",
     "web:build": "npm run build --prefix web",

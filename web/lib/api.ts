@@ -15,8 +15,18 @@ export async function apiRequest<T>(
       }
     });
 
+    if (response.status === 401 && !path.startsWith('/api/auth/') && typeof window !== 'undefined') {
+      // Session expired or token revoked: polling would otherwise keep failing silently.
+      window.location.assign('/login');
+    }
+
     const rawBody = await response.text();
-    const parsed = rawBody ? JSON.parse(rawBody) as StandardResponse<T> : null;
+    let parsed: StandardResponse<T> | null = null;
+    try {
+      parsed = rawBody ? JSON.parse(rawBody) as StandardResponse<T> : null;
+    } catch {
+      // Non-JSON body (proxy error page, crash): reported by HTTP status below.
+    }
 
     if (parsed?.success === true || parsed?.success === false) {
       return parsed;

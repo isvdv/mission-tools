@@ -2,6 +2,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { TokenStore } from '../tokenStore';
 import { validateDiscordToken } from '../discord';
+import { resolveSecret } from '../localSecret';
 
 export type TokenSession = {
 	userId: string;
@@ -23,14 +24,10 @@ type TokenValidationCacheEntry = {
 };
 
 const tokenValidationCache = new Map<string, TokenValidationCacheEntry>();
+const pendingValidations = new Map<string, Promise<string>>();
 
 function sessionSecret(): string {
-	return (
-		process.env.WEB_SESSION_SECRET ||
-		process.env.TOKEN_STORE_SECRET ||
-		process.env.BOT_TOKEN ||
-		'mission-tools-web-session-secret'
-	);
+	return resolveSecret('WEB_SESSION_SECRET', 'TOKEN_STORE_SECRET', 'BOT_TOKEN');
 }
 
 function base64Url(value: string): string {
@@ -154,7 +151,31 @@ export class AuthService {
 		if (!token) throw new Error('Token not configured.');
 		if (hasFreshTokenValidation(userId, token)) return token;
 
-		const validation = await validateDiscordToken(token);
+		// Layout, sidebar and page resolve auth in parallel; share one Discord call.
+		const pendingKey = `${userId}:${token}`;
+		let pending = pendingValidations.get(pendingKey);
+		if (!pending) {
+			pending = this.revalidate(userId, token).finally(() => {
+				pendingValidations.delete(pendingKey);
+			});
+			pendingValidations.set(pendingKey, pending);
+		}
+		return pending;
+	}
+
+	private async revalidate(userId: string, token: string): Promise<string> {
+		let validation;
+		try {
+			validation = await validateDiscordToken(token);
+		} catch {
+			// Network failure or timeout: not evidence that the token is bad.
+			return token;
+		}
+		if (!validation.valid && !validation.rejected) {
+			// Rate limit or Discord outage: the token is not known to be bad, so
+			// keep it instead of logging the user out.
+			return token;
+		}
 		if (!validation.valid || validation.userId !== userId) {
 			await this.tokenStore.delete(userId);
 			tokenValidationCache.delete(userId);

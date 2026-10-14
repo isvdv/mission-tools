@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertCircle, Eye, EyeOff, Info, KeyRound, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, KeyRound, ShieldCheck, Terminal } from 'lucide-react';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { apiRequest } from '../../lib/api';
 
@@ -34,38 +34,59 @@ export function LoginForm() {
   }
 
   return (
-    <section className="w-full max-w-[400px]">
-      <div className="mb-7 text-center">
-        <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl border border-[#2a5a73] bg-[#173347] text-[#4fd1e8]">
-          <ShieldCheck className="h-[22px] w-[22px]" />
+    <section className="grid w-full max-w-4xl overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] md:grid-cols-[0.82fr_1.18fr]">
+      <div className="border-b border-[var(--border)] bg-black/40 p-6 md:border-b-0 md:border-r">
+        <span className="mb-5 grid h-11 w-11 place-items-center rounded-[var(--radius-sm)] border border-[var(--accent)] bg-black text-[var(--accent)]">
+          <ShieldCheck className="h-5 w-5" />
         </span>
-        <h1 className="text-lg font-medium text-[#f2f5f7]">Mission Tools</h1>
-        <p className="mt-1 text-[13px] text-[#8a97a6]">Acesse o painel de controle</p>
+        <p className="text-sm text-[var(--accent)]">Sua conta, suas ferramentas</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">Mission Tools</h1>
+        <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+          Entre para acompanhar missões, configurar sua presença e gerenciar as ferramentas do Discord.
+        </p>
+        <div className="mt-8 grid gap-2 border-y border-[var(--border)] py-4 font-mono text-[11px]">
+          <div className="flex justify-between gap-3">
+            <span className="text-[var(--text-muted)]">Acesso</span>
+            <span className="text-[var(--text-primary)]">Token do Discord</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-[var(--text-muted)]">Armazenamento</span>
+            <span className="text-[var(--success)]">Criptografado</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-[var(--text-muted)]">Disponível em</span>
+            <span className="text-[var(--success)]">Web e app</span>
+          </div>
+        </div>
       </div>
 
-      <form onSubmit={submit} className="rounded-[14px] border border-[#232b36] bg-[#141a22] p-7">
-        <div className="mb-5 flex items-center gap-2 rounded-lg border border-[#2a3340] bg-[#0e131a] px-3 py-2">
-          <Info className="h-[15px] w-[15px] shrink-0 text-[#5c6773]" />
-          <p className="m-0 text-xs text-[#8a97a6]">Somente autenticacao por token esta ativada</p>
+      <form onSubmit={submit} className="p-6 sm:p-8">
+        <div className="mb-5 flex items-center gap-2 border border-[var(--border)] bg-black px-3 py-2">
+          <Terminal className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+          <p className="m-0 font-mono text-xs text-[var(--text-secondary)]">Entre no seu painel</p>
         </div>
 
-        <label htmlFor="token" className="mb-1.5 block text-xs text-[#8a97a6]">
+        <label htmlFor="token" className="mb-2 block text-sm text-[var(--text-secondary)]">
           Token de acesso
         </label>
         <div className="relative">
-          <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5c6773]" />
+          <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
           <input
             id="token"
+            autoComplete="off"
+            spellCheck={false}
+            autoCapitalize="none"
             type={showToken ? 'text' : 'password'}
-            placeholder="Cole ou digite seu token"
+            placeholder="Cole o token"
             value={token}
             onChange={(event) => {
               setToken(event.target.value);
               if (message) setMessage('');
             }}
             aria-invalid={Boolean(message)}
-            className={`h-11 w-full rounded-lg border bg-[#0e131a] px-10 py-0 font-mono text-[13px] text-[#e6ebef] outline-none transition placeholder:text-[#5c6773] focus:border-[#4fd1e8] ${
-              message ? 'border-[#e57373]' : 'border-[#2a3340]'
+            aria-describedby={message ? 'token-error' : undefined}
+            className={`h-11 w-full rounded-[var(--radius-sm)] border bg-black px-10 py-0 font-mono text-base text-[var(--text-primary)] outline-none transition duration-150 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] sm:text-sm ${
+              message ? 'border-[var(--danger)]' : 'border-[var(--border)]'
             }`}
           />
           <button
@@ -73,7 +94,7 @@ export function LoginForm() {
             onClick={() => setShowToken((current) => !current)}
             aria-label={showToken ? 'Ocultar token' : 'Mostrar token'}
             title={showToken ? 'Ocultar token' : 'Mostrar token'}
-            className="absolute right-1.5 top-1/2 grid h-[30px] w-[30px] -translate-y-1/2 place-items-center rounded-md text-[#5c6773] transition hover:bg-white/5 hover:text-[#8a97a6]"
+            className="absolute right-1.5 top-1/2 grid h-[30px] w-[30px] -translate-y-1/2 place-items-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition duration-150 hover:bg-[var(--surface-secondary)] hover:text-[var(--text-primary)]"
           >
             {showToken ? <EyeOff className="h-[17px] w-[17px]" /> : <Eye className="h-[17px] w-[17px]" />}
           </button>
@@ -81,7 +102,7 @@ export function LoginForm() {
 
         <div className="min-h-7 pt-2">
           {message ? (
-            <p className="flex items-start gap-1.5 text-xs leading-5 text-[#e57373]">
+            <p role="alert" id="token-error" className="flex items-start gap-1.5 text-xs leading-5 text-[var(--danger)]">
               <AlertCircle className="mt-0.5 h-[13px] w-[13px] shrink-0" />
               <span>{message}</span>
             </p>
@@ -91,16 +112,16 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#4fd1e8] px-4 text-sm font-medium text-[#04202b] transition hover:bg-[#72def0] disabled:cursor-not-allowed disabled:opacity-75"
+          className="mt-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-black transition duration-150 hover:bg-[#bdd2ff] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? <LoadingSpinner /> : null}
-          {loading ? 'Validando...' : 'Validar token'}
+          {loading ? 'Validando...' : 'Entrar no painel'}
         </button>
-      </form>
 
-      <p className="mt-5 text-center text-xs text-[#5c6773]">
-        Nao tem um token? <span className="text-[#4fd1e8]">Fale com o administrador</span>
-      </p>
+        <p className="mt-5 text-center text-xs text-[var(--text-muted)]">
+          Não tem um token? Peça orientação ao administrador.
+        </p>
+      </form>
     </section>
   );
 }

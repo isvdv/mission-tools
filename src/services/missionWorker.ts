@@ -3,9 +3,11 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { MissionStatusUpdate, runMissionFlow } from '../missionRunner';
 import { DiscordRichPresenceSession } from '../richPresence';
+import { persistMissionStatus, type MissionServiceStatus } from './missionStatusStore';
 
 const userId = process.argv[2];
 const token = process.env.MISSION_TOOLS_WORKER_TOKEN;
+const targetMissionId = process.env.MISSION_TOOLS_TARGET_MISSION_ID?.trim() || undefined;
 
 const DATA_DIR = path.resolve(process.env.MISSION_TOOLS_DATA_DIR ?? path.join(process.cwd(), 'data'));
 const CANCEL_DIR = path.join(DATA_DIR, 'mission-cancel');
@@ -58,14 +60,20 @@ async function cancelRequested(): Promise<boolean> {
 	}
 }
 
-async function writeStatus(update: MissionStatusUpdate): Promise<void> {
+let statusWrites: Promise<void> = Promise.resolve();
+
+function writeStatus(update: Omit<MissionServiceStatus, 'updatedAt'>): Promise<void> {
+	statusWrites = statusWrites.then(() => writeStatusSnapshot(update));
+	return statusWrites;
+}
+
+async function writeStatusSnapshot(update: Omit<MissionServiceStatus, 'updatedAt'>): Promise<void> {
 	if (!userId) return;
-	await fs.mkdir(STATUS_DIR, { recursive: true });
 	const payload = {
 		...update,
 		updatedAt: new Date().toISOString(),
 	};
-	await fs.writeFile(statusFilePath(), JSON.stringify(payload, null, 2), 'utf8');
+	await persistMissionStatus(statusFilePath(), payload);
 
 	if (typeof process.send === 'function') {
 		process.send({ type: 'status', payload });
@@ -81,6 +89,7 @@ async function main(): Promise<void> {
 	const controller = new AbortController();
 	let presence: DiscordRichPresenceSession | null = null;
 	let lastApplicationId: string | undefined;
+	let lastMission: string | undefined;
 	const abortFromSignal = () => {
 		if (!controller.signal.aborted) {
 			controller.abort('Missao parada pelo painel web.');
@@ -104,9 +113,10 @@ async function main(): Promise<void> {
 			async (update) => {
 				await writeStatus(update);
 				if (update.state === 'Running') {
-					if (!presence || lastApplicationId !== update.applicationId) {
+					if (!presence || lastApplicationId !== update.applicationId || lastMission !== update.currentMission) {
 						presence?.stop();
 						lastApplicationId = update.applicationId;
+						lastMission = update.currentMission;
 						presence = new DiscordRichPresenceSession(
 							token,
 							() => undefined,
@@ -115,11 +125,10 @@ async function main(): Promise<void> {
 						presence.start(missionActivity(update));
 						return;
 					}
-
-					presence.update(missionActivity(update));
 				}
 			},
 			controller.signal,
+			{ missionId: targetMissionId },
 		);
 	} catch (error) {
 		await log(
@@ -129,7 +138,7 @@ async function main(): Promise<void> {
 		);
 		if (controller.signal.aborted) {
 			await writeStatus({
-				state: 'Completed',
+				state: 'Stopped',
 				progress: 0,
 				detail: 'Missao parada pelo painel web.',
 			});

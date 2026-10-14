@@ -1,12 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">Mission Tools</title>
   <desc id="desc">Icone do aplicativo Mission Tools</desc>
-  <rect width="512" height="512" rx="96" fill="#070a12"/>
-  <path d="M96 152c0-30.9 25.1-56 56-56h208c30.9 0 56 25.1 56 56v208c0 30.9-25.1 56-56 56H152c-30.9 0-56-25.1-56-56V152Z" fill="#0f172a"/>
-  <path d="M144 176c0-17.7 14.3-32 32-32h160c17.7 0 32 14.3 32 32v64H144v-64Z" fill="#22d3ee"/>
-  <path d="M144 240h224v96c0 17.7-14.3 32-32 32H176c-17.7 0-32-14.3-32-32v-96Z" fill="#1e293b"/>
-  <path d="M198 296h116" stroke="#f8fafc" stroke-width="28" stroke-linecap="round"/>
-  <path d="M256 180v152" stroke="#070a12" stroke-width="24" stroke-linecap="round"/>
-  <circle cx="176" cy="176" r="16" fill="#070a12"/>
-  <circle cx="336" cy="176" r="16" fill="#070a12"/>
+  <rect width="512" height="512" rx="64" fill="#15191f"/>
+  <path d="M100 116h312v280H100z" fill="#0d0d0d" stroke="#35404e" stroke-width="18"/>
+  <path d="M134 160h244" stroke="#9bbcff" stroke-width="18"/>
+  <path d="M154 216h92M154 264h204M154 312h144" stroke="#f2f2f2" stroke-width="22" stroke-linecap="square"/>
+  <path d="M330 214l38 42-38 42" fill="none" stroke="#9bbcff" stroke-width="24" stroke-linejoin="miter"/>
+  <circle cx="150" cy="160" r="10" fill="#15191f"/>
+  <circle cx="362" cy="160" r="10" fill="#15191f"/>
 </svg>

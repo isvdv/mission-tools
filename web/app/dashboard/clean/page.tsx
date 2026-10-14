@@ -1,4 +1,5 @@
 import { Card } from '../../../components/Card';
+import { PageHeader } from '../../../components/PageHeader';
 import { StatusIndicator } from '../../../components/StatusIndicator';
 import { requireWebAuth } from '../../../lib/server';
 import { cleanService } from '../../../../src/services/cleanService';
@@ -9,13 +10,14 @@ export default async function CleanPage() {
   const status = cleanService.getStatus(auth.userId);
   return (
     <div className="grid gap-6">
-      <Card>
-        <h2 className="text-2xl font-semibold">Sistema de Limpeza</h2>
-        <p className="mt-2 text-slate-300">Execute tarefas de limpeza de DM usando os controles desta pagina.</p>
-      </Card>
-      <Card>
+      <PageHeader
+        eyebrow="Mission Tools"
+        title="Sistema de Limpeza"
+        description="Execute e monitore tarefas de limpeza de DM usando os controles desta pagina."
+      />
+      <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <StatusIndicator status={status.state} />
-        <p className="mt-3 text-sm text-slate-400">{status.message}</p>
+        <p className="text-sm text-[var(--text-secondary)]">{status.message}</p>
       </Card>
       <ModuleActionPanel kind="clean" />
     </div>

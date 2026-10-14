@@ -1,4 +1,4 @@
-import { Card } from '../../../components/Card';
+import { PageHeader } from '../../../components/PageHeader';
 import { requireWebAuth } from '../../../lib/server';
 import { presenceService } from '../../../../src/services/presenceService';
 import { PresenceEditor } from './PresenceEditor';
@@ -9,12 +9,11 @@ export default async function PresencePage() {
 
   return (
     <div className="grid gap-6">
-      <Card>
-        <h2 className="text-2xl font-semibold">Rich Presence</h2>
-        <p className="mt-2 text-slate-300">
-          Configure textos, imagens, botao, ID do app e horario inicial da atividade.
-        </p>
-      </Card>
+      <PageHeader
+        eyebrow="Mission Tools"
+        title="Rich Presence"
+        description="Configure textos, imagens, botao, ID do app e horario inicial da atividade."
+      />
       <PresenceEditor initialStatus={status} />
     </div>
   );

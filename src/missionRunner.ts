@@ -1,5 +1,6 @@
 // Credito: Perfil Discord https://discord.com/users/1411202571804348507
 import { ClientQuest } from './client';
+import { QuestTaskConfigType } from './interface';
 import { Quest } from './quest';
 
 export type MissionState = 'Waiting' | 'Running' | 'Completed' | 'Error';
@@ -24,6 +25,30 @@ export type MissionStatusReporter = (
 	force?: boolean,
 ) => void | Promise<void>;
 
+export type AvailableMission = {
+	id: string;
+	name: string;
+	gameName: string;
+	applicationId?: string;
+	gameIconUrl?: string;
+	largeImage?: string;
+	reward: string;
+	taskType?: QuestTaskConfigType;
+	duration: number;
+	progress: number;
+	available: boolean;
+	unavailableReason?: string;
+	enrolled: boolean;
+};
+
+export type RunMissionFlowOptions = {
+	missionId?: string;
+	stallTimeoutMs?: number;
+};
+
+// Desktop tasks report once per minute; allow three intervals without progress.
+const DEFAULT_STALL_TIMEOUT_MS = 3 * 60 * 1000;
+
 type MissionDetails = {
 	name: string;
 	gameName: string;
@@ -45,6 +70,20 @@ type MissionBatch = {
 	quests: Quest[];
 	applications: Map<string, ApplicationDetails>;
 };
+
+const TASK_PRIORITY = [
+	QuestTaskConfigType.WATCH_VIDEO,
+	QuestTaskConfigType.WATCH_VIDEO_ON_MOBILE,
+	QuestTaskConfigType.PLAY_ON_DESKTOP,
+	QuestTaskConfigType.STREAM_ON_DESKTOP,
+	QuestTaskConfigType.PLAY_ACTIVITY,
+] as const;
+
+const AUTO_RUN_TASKS = new Set<QuestTaskConfigType>([
+	QuestTaskConfigType.WATCH_VIDEO,
+	QuestTaskConfigType.WATCH_VIDEO_ON_MOBILE,
+	QuestTaskConfigType.PLAY_ON_DESKTOP,
+]);
 
 function applicationIconUrl(application?: ApplicationDetails): string | undefined {
 	if (!application?.id || !application.icon) return undefined;
@@ -92,6 +131,42 @@ function getQuestData(
 		duration,
 		reward,
 	};
+}
+
+function getQuestTask(quest: Quest): {
+	taskType?: QuestTaskConfigType;
+	duration: number;
+	secondsDone: number;
+} {
+	const tasks =
+		quest.config?.task_config?.tasks ?? quest.config?.task_config_v2?.tasks;
+	for (const taskType of TASK_PRIORITY) {
+		const task = tasks?.[taskType];
+		if (!task) continue;
+
+		return {
+			taskType,
+			duration: task.target ?? 0,
+			secondsDone: quest.userStatus?.progress?.[taskType]?.value ?? 0,
+		};
+	}
+
+	return {
+		duration: 0,
+		secondsDone: 0,
+	};
+}
+
+function unavailableReason(taskType?: QuestTaskConfigType): string | undefined {
+	if (!taskType) return 'Tipo de missao nao identificado pelo Discord.';
+	if (AUTO_RUN_TASKS.has(taskType)) return undefined;
+	if (taskType === QuestTaskConfigType.STREAM_ON_DESKTOP) {
+		return 'Transmitir no desktop nao funciona mais via Node.';
+	}
+	if (taskType === QuestTaskConfigType.PLAY_ACTIVITY) {
+		return 'Jogar atividade precisa ser concluido pelo app Discord.';
+	}
+	return 'Tipo de missao nao suportado pelo runner.';
 }
 
 function toProgress(secondsDone?: number, secondsNeeded?: number): number {
@@ -144,10 +219,43 @@ async function fetchAvailableMissions(
 	};
 }
 
+export async function listAvailableMissions(
+	token: string,
+): Promise<AvailableMission[]> {
+	const questClient = new ClientQuest(token);
+	const { quests, applications } = await fetchAvailableMissions(
+		questClient,
+		new Set(),
+	);
+
+	return quests.map((quest) => {
+		const details = getQuestData(
+			quest,
+			quest.config?.application?.id
+				? applications.get(quest.config.application.id)
+				: undefined,
+		);
+		const task = getQuestTask(quest);
+		const reason = unavailableReason(task.taskType);
+
+		return {
+			id: quest.id,
+			...details,
+			taskType: task.taskType,
+			duration: task.duration,
+			progress: toProgress(task.secondsDone, task.duration),
+			available: !reason,
+			unavailableReason: reason,
+			enrolled: quest.isEnrolledQuest(),
+		};
+	});
+}
+
 export async function runMissionFlow(
 	token: string,
 	reportStatus: MissionStatusReporter,
 	signal?: AbortSignal,
+	options: RunMissionFlowOptions = {},
 ): Promise<void> {
 	signal?.throwIfAborted();
 	await reportStatus({
@@ -159,6 +267,11 @@ export async function runMissionFlow(
 	let completed = 0;
 	let failed = 0;
 	const attemptedQuestIds = new Set<string>();
+	const targetMissionId = options.missionId?.trim();
+	const stallTimeoutMs = options.stallTimeoutMs ?? DEFAULT_STALL_TIMEOUT_MS;
+	if (!Number.isFinite(stallTimeoutMs) || stallTimeoutMs <= 0) {
+		throw new Error('Tempo limite de progresso invalido.');
+	}
 
 	while (true) {
 		signal?.throwIfAborted();
@@ -177,15 +290,22 @@ export async function runMissionFlow(
 		);
 		signal?.throwIfAborted();
 
-		if (quests.length === 0) {
+		const runnableQuests = quests.filter((candidate) => !unavailableReason(getQuestTask(candidate).taskType));
+		const selectedQuest = targetMissionId
+			? quests.find((candidate) => candidate.id === targetMissionId)
+			: runnableQuests[0];
+
+		if (!selectedQuest) {
 			const totalHandled = completed + failed;
 			await reportStatus(
 				{
-					state: failed > 0 ? 'Error' : 'Completed',
-					progress: 100,
+					state: targetMissionId || failed > 0 ? 'Error' : 'Completed',
+					progress: targetMissionId ? 0 : 100,
 					totalMissions: totalHandled,
 					detail:
-						totalHandled === 0
+						targetMissionId
+							? 'A missao selecionada nao esta disponivel para este usuario.'
+							: totalHandled === 0
 							? 'Nenhuma missao valida foi encontrada.'
 							: failed > 0
 								? `Finalizado com ${completed} concluidas e ${failed} com erro.`
@@ -196,7 +316,7 @@ export async function runMissionFlow(
 			return;
 		}
 
-		const quest = quests[0];
+		const quest = selectedQuest;
 		attemptedQuestIds.add(quest.id);
 		const details = getQuestData(
 			quest,
@@ -205,7 +325,7 @@ export async function runMissionFlow(
 				: undefined,
 		);
 		const currentIndex = completed + failed + 1;
-		const totalMissions = completed + failed + quests.length;
+		const totalMissions = targetMissionId ? 1 : completed + failed + runnableQuests.length;
 
 		await reportStatus({
 			state: 'Running',
@@ -221,10 +341,27 @@ export async function runMissionFlow(
 			detail: `Recompensa: ${details.reward}`,
 		});
 
+		const missionController = new AbortController();
+		const abortMission = () => missionController.abort(signal?.reason);
+		signal?.addEventListener('abort', abortMission, { once: true });
+		if (signal?.aborted) abortMission();
+		let highestProgress = getQuestTask(quest).secondsDone;
+		const onStall = () => missionController.abort(new Error(targetMissionId
+			? 'Missao sem avancar por tempo demais. Tente novamente mais tarde.'
+			: 'Missao sem avancar por tempo demais. A fila seguira para a proxima.'));
+		let stallTimer = setTimeout(onStall, stallTimeoutMs);
+		let progressReports = Promise.resolve();
 		try {
+			const reason = unavailableReason(getQuestTask(quest).taskType);
+			if (reason) throw new Error(reason);
 			await manager.doingQuest(quest, (update) => {
-				if (signal?.aborted) return;
-				void reportStatus({
+				if (missionController.signal.aborted) return;
+				if (typeof update.secondsDone === 'number' && update.secondsDone > highestProgress) {
+					highestProgress = update.secondsDone;
+					clearTimeout(stallTimer);
+					stallTimer = setTimeout(onStall, stallTimeoutMs);
+				}
+				progressReports = progressReports.then(() => reportStatus({
 					state: 'Running',
 					currentMission: details.name,
 					gameName: details.gameName,
@@ -236,13 +373,18 @@ export async function runMissionFlow(
 					totalMissions,
 					progress: toProgress(update.secondsDone, update.secondsNeeded),
 					detail: update.message,
-				});
-			}, signal);
+				}));
+				// Observe failures immediately; the queue below still propagates them.
+				void progressReports.catch(() => undefined);
+			}, missionController.signal);
+			clearTimeout(stallTimer);
+			missionController.signal.throwIfAborted();
+			await progressReports;
 			signal?.throwIfAborted();
 			completed++;
 			await reportStatus(
 				{
-					state: 'Completed',
+					state: targetMissionId ? 'Completed' : 'Running',
 					currentMission: details.name,
 					gameName: details.gameName,
 					applicationId: details.applicationId,
@@ -252,11 +394,15 @@ export async function runMissionFlow(
 					currentIndex,
 					totalMissions,
 					progress: 100,
-					detail: `Missao concluida. Buscando outra missao disponivel.`,
+					detail: targetMissionId
+						? 'Missao selecionada concluida.'
+						: 'Missao concluida. Buscando outra missao disponivel.',
 				},
 				true,
 			);
+			if (targetMissionId) return;
 		} catch (error) {
+			await progressReports;
 			if (isAbortError(error, signal)) {
 				throw error;
 			}
@@ -264,7 +410,7 @@ export async function runMissionFlow(
 			failed++;
 			await reportStatus(
 				{
-					state: 'Error',
+					state: targetMissionId ? 'Error' : 'Running',
 					currentMission: details.name,
 					gameName: details.gameName,
 					applicationId: details.applicationId,
@@ -278,6 +424,10 @@ export async function runMissionFlow(
 				},
 				true,
 			);
+			if (targetMissionId) return;
+		} finally {
+			clearTimeout(stallTimer);
+			signal?.removeEventListener('abort', abortMission);
 		}
 	}
 }

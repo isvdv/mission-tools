@@ -3,11 +3,10 @@ import { ChildProcess, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { MissionStatusUpdate } from '../missionRunner';
-
-export type MissionServiceStatus = MissionStatusUpdate & {
-	updatedAt: string;
-};
+import { AvailableMission, listAvailableMissions } from '../missionRunner';
+import { persistMissionStatus, type MissionServiceStatus } from './missionStatusStore';
+import { TtlCache, secretKey } from '../ttlCache';
+export type { MissionServiceStatus } from './missionStatusStore';
 
 type MissionWorkerMessage = {
 	type: 'status';
@@ -17,11 +16,17 @@ type MissionWorkerMessage = {
 type MissionRuntime = {
 	child: ChildProcess;
 	startedAt: string;
+	stopping?: boolean;
+};
+
+type StartMissionOptions = {
+	missionId?: string;
 };
 
 type MissionGlobalState = {
 	statuses: Map<string, MissionServiceStatus>;
 	runtimes: Map<string, MissionRuntime>;
+	operations: Map<string, Promise<void>>;
 };
 
 const globalKey = '__missionToolsMissionServiceState';
@@ -34,7 +39,24 @@ const state =
 	(globalState[globalKey] = {
 		statuses: new Map<string, MissionServiceStatus>(),
 		runtimes: new Map<string, MissionRuntime>(),
+		operations: new Map<string, Promise<void>>(),
 	});
+
+state.operations ??= new Map();
+
+async function withUserLock<T>(userId: string, operation: () => Promise<T>): Promise<T> {
+	const previous = state.operations.get(userId) ?? Promise.resolve();
+	let release!: () => void;
+	const current = new Promise<void>((resolve) => { release = resolve; });
+	state.operations.set(userId, current);
+	await previous;
+	try {
+		return await operation();
+	} finally {
+		release();
+		if (state.operations.get(userId) === current) state.operations.delete(userId);
+	}
+}
 
 function resolveProjectRoot(): string {
 	const configuredRoot = process.env.MISSION_TOOLS_PROJECT_ROOT;
@@ -60,6 +82,9 @@ function resolveProjectRoot(): string {
 	return path.resolve(process.cwd(), '..');
 }
 
+// Several open tabs poll the catalog; reuse one Discord fetch for a short while.
+const catalogCache = new TtlCache<AvailableMission[]>(10_000);
+
 const PROJECT_ROOT = resolveProjectRoot();
 const DATA_DIR = path.resolve(process.env.MISSION_TOOLS_DATA_DIR ?? path.join(PROJECT_ROOT, 'data'));
 const CANCEL_DIR = path.join(DATA_DIR, 'mission-cancel');
@@ -79,11 +104,7 @@ function logFilePath(userId: string): string {
 }
 
 async function clearCancelRequest(userId: string): Promise<void> {
-	try {
-		await fs.rm(cancelFilePath(userId), { force: true });
-	} catch {
-		// Best-effort cleanup.
-	}
+	await fs.rm(cancelFilePath(userId), { force: true });
 }
 
 async function requestCancel(userId: string, reason: string): Promise<void> {
@@ -106,8 +127,9 @@ async function readStatusFile(userId: string): Promise<MissionServiceStatus | nu
 	try {
 		const raw = await fs.readFile(statusFilePath(userId), 'utf8');
 		return JSON.parse(raw) as MissionServiceStatus;
-	} catch {
-		return null;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+		throw error;
 	}
 }
 
@@ -115,8 +137,7 @@ async function writeStatusFile(
 	userId: string,
 	status: MissionServiceStatus,
 ): Promise<void> {
-	await fs.mkdir(STATUS_DIR, { recursive: true });
-	await fs.writeFile(statusFilePath(userId), JSON.stringify(status, null, 2), 'utf8');
+	await persistMissionStatus(statusFilePath(userId), status);
 }
 
 function defaultStatus(): MissionServiceStatus {
@@ -125,6 +146,7 @@ function defaultStatus(): MissionServiceStatus {
 		progress: 0,
 		detail: 'Nenhuma execucao de missao iniciada pelo painel web.',
 		updatedAt: new Date().toISOString(),
+		active: false,
 	};
 }
 
@@ -145,7 +167,7 @@ function workerArgs(userId: string): string[] {
 }
 
 function isRunning(runtime?: MissionRuntime): boolean {
-	return Boolean(runtime?.child.pid && runtime.child.exitCode === null && !runtime.child.killed);
+	return Boolean(runtime?.child.pid && runtime.child.exitCode === null && runtime.child.signalCode === null && !runtime.child.killed);
 }
 
 function forceKill(runtime: MissionRuntime): void {
@@ -166,19 +188,46 @@ function forceKill(runtime: MissionRuntime): void {
 export class MissionService {
 	async getStatus(userId: string): Promise<MissionServiceStatus> {
 		const fileStatus = await readStatusFile(userId);
-		if (fileStatus) {
-			state.statuses.set(userId, fileStatus);
-			return fileStatus;
+		const current = fileStatus ?? state.statuses.get(userId) ?? defaultStatus();
+		const runtime = state.runtimes.get(userId);
+		if (runtime?.stopping) return { ...current, state: 'Stopping', active: true, detail: 'Parando a missao. Aguarde o processo encerrar.' };
+		if (!runtime && fileStatus && ['Running', 'Waiting', 'Stopping'].includes(current.state)) {
+			return { ...current, state: 'Error', active: false, detail: 'A execucao anterior foi interrompida. Inicie novamente para continuar.' };
 		}
-
-		return state.statuses.get(userId) ?? defaultStatus();
+		return { ...current, active: Boolean(runtime) };
 	}
 
-	async start(userId: string, token: string): Promise<MissionServiceStatus> {
+	async listAvailable(token: string): Promise<AvailableMission[]> {
+		return listAvailableMissions(token);
+	}
+
+	async getSnapshot(userId: string, token: string, includeMissions = true): Promise<{
+		status: MissionServiceStatus;
+		availableMissions?: AvailableMission[] | null;
+		availableMissionsError?: string | null;
+	}> {
+		const [status, catalog] = await Promise.all([
+			this.getStatus(userId),
+			includeMissions
+				? catalogCache.get(secretKey(token), () => this.listAvailable(token)).then(
+					(availableMissions) => ({ availableMissions, availableMissionsError: null }),
+					() => ({ availableMissions: null, availableMissionsError: 'Nao foi possivel atualizar a lista no Discord. Tente novamente.' }),
+				)
+				: Promise.resolve({}),
+		]);
+		return { status, ...catalog };
+	}
+
+	async start(userId: string, token: string, options: StartMissionOptions = {}): Promise<MissionServiceStatus> {
+		return withUserLock(userId, () => this.startLocked(userId, token, options));
+	}
+
+	private async startLocked(userId: string, token: string, options: StartMissionOptions): Promise<MissionServiceStatus> {
 		const existing = state.runtimes.get(userId);
-		if (isRunning(existing)) {
+		if (existing) {
 			throw new Error('Ja existe uma missao em execucao para este usuario.');
 		}
+		catalogCache.delete(secretKey(token));
 
 		await clearCancelRequest(userId);
 		const initialStatus: MissionServiceStatus = {
@@ -186,6 +235,7 @@ export class MissionService {
 			progress: 0,
 			detail: 'Missao iniciada em processo separado.',
 			updatedAt: new Date().toISOString(),
+			active: true,
 		};
 		state.statuses.set(userId, initialStatus);
 		await writeStatusFile(userId, initialStatus);
@@ -201,6 +251,8 @@ export class MissionService {
 			env: {
 				...process.env,
 				MISSION_TOOLS_WORKER_TOKEN: token,
+				MISSION_TOOLS_TARGET_MISSION_ID: options.missionId ?? '',
+				MISSION_TOOLS_DATA_DIR: DATA_DIR,
 			},
 			stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
 			windowsHide: true,
@@ -233,55 +285,65 @@ export class MissionService {
 				updatedAt: new Date().toISOString(),
 			};
 			state.statuses.set(userId, status);
-			void writeStatusFile(userId, status);
 			void fs.appendFile(
 				logFilePath(userId),
 				`[${new Date().toISOString()}] Spawn error: ${error.stack ?? error.message}\n`,
 			);
 		});
 
-		child.on('exit', (code, signal) => {
+		child.on('close', (code, signal) => {
+			void withUserLock(userId, async () => {
 			const runtime = state.runtimes.get(userId);
-			if (runtime?.child === child) {
-				state.runtimes.delete(userId);
-			}
+			if (runtime?.child !== child) return;
 
 			void fs.appendFile(
 				logFilePath(userId),
 				`[${new Date().toISOString()}] Worker saiu com codigo ${code ?? 'n/a'}${signal ? ` (${signal})` : ''}.\n`,
 			);
 
-			void readStatusFile(userId).then((fileStatus) => {
-				const current = fileStatus ?? state.statuses.get(userId);
-				if (current?.state === 'Error') {
-					state.statuses.set(userId, current);
-					return;
-				}
-
-				if (!current || current.state === 'Running' || current.state === 'Waiting') {
+			try {
+				const fileStatus = await readStatusFile(userId);
+				const memoryStatus = state.statuses.get(userId);
+				const current = memoryStatus?.state === 'Error' ? memoryStatus : fileStatus ?? memoryStatus;
+				if (runtime.stopping || !current || current.state === 'Running' || current.state === 'Waiting') {
 					const status: MissionServiceStatus = {
 						...(current ?? defaultStatus()),
-						state: code === 0 ? 'Completed' : 'Error',
+						state: runtime.stopping ? 'Stopped' : 'Error',
+						active: false,
 						detail:
-							code === 0
-								? 'Processo da missao finalizado.'
+							runtime.stopping
+								? 'Missao parada pelo painel web.'
 								: `Processo da missao saiu com codigo ${code ?? 'n/a'}${signal ? ` (${signal})` : ''}.`,
 						updatedAt: new Date().toISOString(),
 					};
 					state.statuses.set(userId, status);
-					void writeStatusFile(userId, status);
+					await writeStatusFile(userId, status);
+				} else if (current) {
+					await writeStatusFile(userId, { ...current, active: false });
 				}
-			});
+			} finally {
+				state.runtimes.delete(userId);
+			}
+			}).catch((error: unknown) => console.error('Falha ao finalizar status da missao:', error));
 		});
 
+		await new Promise<void>((resolve, reject) => {
+			child.once('spawn', resolve);
+			child.once('error', reject);
+		});
 		return initialStatus;
 	}
 
 	async stop(userId: string): Promise<MissionServiceStatus> {
+		return withUserLock(userId, () => this.stopLocked(userId));
+	}
+
+	private async stopLocked(userId: string): Promise<MissionServiceStatus> {
+		const runtime = state.runtimes.get(userId);
+		if (!runtime || runtime.stopping) return this.getStatus(userId);
 		const reason = 'Missao parada pelo painel web.';
 		await requestCancel(userId, reason);
-
-		const runtime = state.runtimes.get(userId);
+		runtime.stopping = true;
 		if (runtime && isRunning(runtime)) {
 			setTimeout(() => {
 				if (isRunning(runtime)) {
@@ -292,14 +354,12 @@ export class MissionService {
 
 		const status: MissionServiceStatus = {
 			...(state.statuses.get(userId) ?? (await readStatusFile(userId)) ?? defaultStatus()),
-			state: 'Completed',
-			progress: 0,
-			detail: 'Stop enviado. O processo da missao recebeu exit.',
+			state: 'Stopping',
+			active: true,
+			detail: 'Parando a missao. Aguarde o processo encerrar.',
 			updatedAt: new Date().toISOString(),
 		};
 		state.statuses.set(userId, status);
-		await writeStatusFile(userId, status);
-
 		return status;
 	}
 }

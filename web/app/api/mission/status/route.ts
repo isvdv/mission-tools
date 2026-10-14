@@ -1,12 +1,12 @@
 import { missionService } from '@root/src/services/missionService';
 import { jsonFail, jsonOk, requireWebAuth } from '@/lib/server';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const auth = await requireWebAuth();
-    const status = await missionService.getStatus(auth.userId);
+    const snapshot = await missionService.getSnapshot(auth.userId, auth.token, new URL(request.url).searchParams.get('includeMissions') !== '0');
     return jsonOk('Status da missao carregado.', {
-      status,
+      ...snapshot,
       availableFunctions: [
         {
           name: 'Iniciar Missao',
@@ -46,6 +46,6 @@ export async function GET() {
       ]
     });
   } catch (error) {
-    return jsonFail('Nao foi possivel carregar o status da missao.', error, 401);
+    return jsonFail('Nao foi possivel carregar o status da missao.', error, 500);
   }
 }

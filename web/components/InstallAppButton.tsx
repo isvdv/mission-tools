@@ -57,7 +57,7 @@ export function InstallAppButton() {
     <button
       type="button"
       onClick={handleInstall}
-      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-white/10 px-3 text-sm font-semibold text-white transition hover:bg-white/15"
+      className="inline-flex min-h-9 items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface-secondary)] px-3 text-sm font-semibold text-[var(--text-primary)] transition duration-150 hover:border-[var(--border-hover)] hover:bg-[var(--surface-raised)]"
       aria-label="Instalar aplicativo Mission Tools"
       title="Instalar aplicativo"
     >

@@ -1,4 +1,5 @@
 import { Card } from '../../../components/Card';
+import { PageHeader } from '../../../components/PageHeader';
 import { StatusIndicator } from '../../../components/StatusIndicator';
 import { requireWebAuth } from '../../../lib/server';
 import { fetchManageableGuilds } from '../../../lib/discord';
@@ -14,13 +15,14 @@ export default async function VoicePage() {
 
   return (
     <div className="grid gap-6">
-      <Card>
-        <h2 className="text-2xl font-semibold">Sessao de Voz</h2>
-        <p className="mt-2 text-slate-300">Conecte a conta autenticada a um canal de voz usando o ID do servidor e do canal.</p>
-      </Card>
-      <Card>
+      <PageHeader
+        eyebrow="Mission Tools"
+        title="Sessao de Voz"
+        description="Conecte a conta autenticada a um canal de voz usando o ID do servidor e do canal."
+      />
+      <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <StatusIndicator status={status.status} />
-        <p className="mt-3 text-sm text-slate-400">Servidores gerenciaveis carregados: {guilds.length}</p>
+        <p className="font-mono text-xs text-[var(--text-muted)]">MANAGEABLE_GUILDS: {guilds.length}</p>
       </Card>
       <ModuleActionPanel kind="voice" />
     </div>

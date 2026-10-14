@@ -8,6 +8,7 @@ import {
 	randomUUID,
 	scryptSync,
 } from 'node:crypto';
+import { resolveSecret } from './localSecret';
 
 type StoredTokenRecord = {
 	iv: string;
@@ -35,10 +36,7 @@ export class TokenStore {
 			options?.filePath ?? process.env.TOKEN_STORE_PATH ?? DEFAULT_STORE_PATH,
 		);
 		const secret =
-			options?.secret ??
-			process.env.TOKEN_STORE_SECRET ??
-			process.env.BOT_TOKEN ??
-			'local-development-token-store-secret';
+			options?.secret ?? resolveSecret('TOKEN_STORE_SECRET', 'BOT_TOKEN');
 		this.key = scryptSync(secret, 'mission-token-store', 32);
 	}
 

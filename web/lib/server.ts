@@ -9,8 +9,18 @@ export function jsonOk<T>(message: string, data: T, init?: ResponseInit) {
   return NextResponse.json(ok(message, data), init);
 }
 
+/** Error carrying the HTTP status the API should answer with. */
+export class HttpError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
 export function jsonFail(message: string, error?: unknown, status = 400) {
-  return NextResponse.json(fail(message, error), { status });
+  return NextResponse.json(fail(message, error), {
+    status: error instanceof HttpError ? error.status : status
+  });
 }
 
 function shouldUseSecureCookies() {
@@ -46,9 +56,14 @@ export async function requireWebAuth() {
   const cookieStore = await cookies();
   const cookieValue = cookieStore.get(WEB_SESSION_COOKIE)?.value;
   const session = authService.parseSessionCookie(cookieValue);
-  if (!session) throw new Error('Login obrigatorio.');
+  if (!session) throw new HttpError('Login obrigatorio.', 401);
 
-  const token = await authService.requireToken(session.userId);
+  let token: string;
+  try {
+    token = await authService.requireToken(session.userId);
+  } catch (error) {
+    throw new HttpError(error instanceof Error ? error.message : String(error), 401);
+  }
   return {
     userId: session.userId,
     token
@@ -57,7 +72,7 @@ export async function requireWebAuth() {
 
 export async function requireGuildPermission(token: string, guildId?: string) {
   const allowed = await accountCanManageGuild(token, guildId);
-  if (!allowed) throw new Error('Voce nao tem permissao nesse servidor.');
+  if (!allowed) throw new HttpError('Voce nao tem permissao nesse servidor.', 403);
 }
 
 export async function withApiLog<T>(

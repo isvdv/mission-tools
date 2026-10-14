@@ -33,9 +33,12 @@ export class LogService {
 		this.filePath = path.resolve(process.cwd(), filePath);
 	}
 
-	async list(limit = 100): Promise<MissionToolsLogEntry[]> {
+	async list(userId: string, limit = 100): Promise<MissionToolsLogEntry[]> {
 		const store = await this.read();
-		return store.entries.slice(-Math.max(1, limit)).reverse();
+		return store.entries
+			.filter((entry) => entry.userId === userId)
+			.slice(-Math.max(1, limit))
+			.reverse();
 	}
 
 	async write(

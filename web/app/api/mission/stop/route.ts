@@ -7,7 +7,7 @@ export async function POST() {
     const status = await withApiLog(auth.userId, 'mission', 'stop', async () =>
       missionService.stop(auth.userId)
     );
-    return jsonOk('Missao parada.', { status });
+    return jsonOk(status.active ? 'Cancelamento solicitado. Aguarde o processo encerrar.' : 'Nenhuma missao em execucao.', { status });
   } catch (error) {
     return jsonFail('Nao foi possivel parar a missao.', error);
   }

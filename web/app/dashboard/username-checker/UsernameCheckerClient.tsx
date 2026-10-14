@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { Button } from '../../../components/Button';
 import { Card } from '../../../components/Card';
+import { EmptyState } from '../../../components/EmptyState';
+import { Field } from '../../../components/Field';
 import { Textarea } from '../../../components/Input';
 import { Table } from '../../../components/Table';
 import { Badge } from '../../../components/Badge';
@@ -52,7 +54,7 @@ export function UsernameCheckerClient() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-      link.download = 'resultados-usernames.json';
+    link.download = 'resultados-usernames.json';
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -69,15 +71,25 @@ export function UsernameCheckerClient() {
   }
 
   return (
-    <Card className="grid gap-4">
-      <Textarea placeholder="Digite um username por linha" value={raw} onChange={(event) => setRaw(event.target.value)} />
-      <div className="flex flex-wrap gap-3">
-        <Button onClick={check}>Verificar</Button>
-        <Button variant="secondary" onClick={exportJson} disabled={!results.length}>Exportar JSON</Button>
-        <Button variant="secondary" onClick={exportCsv} disabled={!results.length}>Exportar CSV</Button>
+    <Card className="grid gap-5">
+      <div className="border-b border-[var(--border)] pb-3">
+        <h3 className="font-mono text-xs uppercase text-[var(--text-primary)]">USERNAME_SCAN</h3>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">Cole usernames separados por linha ou virgula para consultar disponibilidade.</p>
+      </div>
+      <Field label="Input Buffer" htmlFor="username-buffer" description="newline/comma">
+        <Textarea id="username-buffer" placeholder={'usuario_01\nusuario_02'} value={raw} onChange={(event) => setRaw(event.target.value)} />
+      </Field>
+      <div className="flex flex-wrap gap-3 border-t border-[var(--border)] pt-4">
+        <Button onClick={check}>RUN SCAN</Button>
+        <Button variant="secondary" onClick={exportJson} disabled={!results.length}>EXPORT JSON</Button>
+        <Button variant="secondary" onClick={exportCsv} disabled={!results.length}>EXPORT CSV</Button>
       </div>
       {message ? <Toast message={message} /> : null}
-      {results.length ? <Table headers={['Username', 'Status', 'Erro']} rows={rows} /> : null}
+      {results.length ? (
+        <Table headers={['Username', 'Status', 'Erro']} rows={rows} />
+      ) : (
+        <EmptyState title="NO RESULTS" description="Execute uma verificacao para preencher a tabela de usernames." />
+      )}
     </Card>
   );
 }

@@ -1,72 +1,27 @@
-import { ArrowRight, LockKeyhole, PanelsTopLeft, ShieldCheck, Sparkles } from 'lucide-react';
+import { Monitor, PanelsTopLeft, ShieldCheck } from 'lucide-react';
 import { Button } from '../components/Button';
-import { Card } from '../components/Card';
-
-const modules = ['Sistema de Missoes', 'Sistema de Limpeza', 'Sessao de Voz', 'Rich Presence', 'Verificador de Usernames', 'Apagar DM do Bot'];
+import { ToolDirectory } from '../components/ToolDirectory';
 
 export default function LandingPage() {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-8 sm:px-6 lg:px-8">
-      <nav className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-lg bg-cyanSoft text-ink">
-            <PanelsTopLeft className="h-5 w-5" />
-          </span>
-          <strong>Mission Tools</strong>
-        </div>
-        <Button href="/login" variant="secondary">Entrar</Button>
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 sm:px-8 lg:px-12">
+      <nav aria-label="Navegação principal" className="flex items-center justify-between gap-4 border-b border-[var(--border)] py-6">
+        <a href="/" className="flex items-center gap-3 font-semibold"><PanelsTopLeft className="h-6 w-6 text-[var(--accent)]" />Mission Tools</a><Button href="/login" variant="secondary">Entrar</Button>
       </nav>
-
-      <section className="grid flex-1 items-center gap-10 py-16 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="grid flex-1 items-center gap-12 py-12 lg:grid-cols-[1fr_1.05fr] lg:gap-20 lg:py-20">
         <div>
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyanSoft/30 bg-cyanSoft/10 px-3 py-1 text-sm text-cyanSoft">
-            <Sparkles className="h-4 w-4" />
-            Painel web com login por token
-          </div>
-          <h1 className="max-w-3xl text-4xl font-semibold leading-tight sm:text-6xl">
-            Mission Tools
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
-            Controle missoes, sessoes de voz, Rich Presence, limpeza e verificacao de usernames em um painel web conectado a logica real do bot.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button href="/login">
-              Entrar com token <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button href="/dashboard" variant="secondary">Abrir painel</Button>
-          </div>
+          <p className="mb-6 flex items-center gap-2 text-sm text-[var(--text-secondary)]"><Monitor className="h-4 w-4 shrink-0" />Seu espaço de controle para o Discord</p>
+          <h1 className="max-w-xl text-5xl font-semibold leading-[1.06] tracking-[-0.045em] sm:text-6xl lg:text-7xl">Menos comandos.<br />Mais controle.</h1>
+          <p className="mt-6 max-w-md text-base leading-7 text-[var(--text-secondary)]">Missões, voz e presença em um só lugar. Escolha uma ferramenta, ajuste o que precisa e acompanhe cada execução pelo painel.</p>
+          <div className="mt-8 flex flex-wrap gap-3"><Button href="/login" className="px-6">Acessar meu painel</Button><Button href="#ferramentas" variant="ghost">Explorar ferramentas</Button></div>
+          <div className="mt-12 flex max-w-md items-start gap-3 border-t border-[var(--border)] pt-5 text-sm leading-6 text-[var(--text-secondary)]"><ShieldCheck className="mt-1 h-5 w-5 shrink-0 text-[var(--success)]" /><p>Seu token é armazenado de forma criptografada. Você controla sua sessão e pode sair a qualquer momento.</p></div>
         </div>
-
-        <Card className="grid gap-3">
-          {modules.map((module) => (
-            <div key={module} className="flex items-center justify-between rounded-lg border border-white/10 bg-ink/50 p-4">
-              <span>{module}</span>
-              <span className="h-2 w-2 rounded-full bg-cyanSoft" />
-            </div>
-          ))}
-        </Card>
+        <section id="ferramentas" aria-labelledby="tools-title" className="scroll-mt-6 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-5 sm:px-6"><h2 id="tools-title" className="text-base font-semibold">Sua caixa de ferramentas</h2><span className="shrink-0 text-xs text-[var(--text-muted)]">6 módulos</span></div>
+          <ToolDirectory /><p className="border-t border-[var(--border)] px-6 py-4 text-xs leading-5 text-[var(--text-muted)]">Escolha uma ferramenta. Se necessário, você será direcionado para entrar.</p>
+        </section>
       </section>
-
-      <section className="grid gap-4 pb-12 md:grid-cols-2">
-        <Card>
-          <ShieldCheck className="mb-3 h-7 w-7 text-emerald-300" />
-          <h2 className="text-xl font-semibold">Modelo de seguranca</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
-            O navegador envia o token uma vez. O servidor valida, salva criptografado e nunca devolve o token para o frontend.
-          </p>
-        </Card>
-        <Card>
-          <LockKeyhole className="mb-3 h-7 w-7 text-violetSoft" />
-          <h2 className="text-xl font-semibold">Servicos compartilhados</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
-            As rotas da API usam a mesma camada de servicos dos modulos do bot, mantendo o painel conectado ao comportamento real.
-          </p>
-        </Card>
-      </section>
-
-      <footer className="border-t border-white/10 py-6 text-sm text-slate-500">
-        Painel web Mission Tools.
-      </footer>
+      <footer className="flex flex-wrap justify-between gap-3 border-t border-[var(--border)] py-6 text-xs text-[var(--text-muted)]"><span>Mission Tools</span><span>No navegador, no computador e como app instalável.</span></footer>
     </main>
   );
 }

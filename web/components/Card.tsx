@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function Card({ children, className = '', padding = true }: { children: ReactNode; className?: string; padding?: boolean }) {
   return (
-    <section className={`rounded-lg border border-white/10 bg-white/[0.055] p-5 shadow-glow backdrop-blur ${className}`}>
+    <section className={`technical-panel rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] ${padding ? 'p-5' : ''} shadow-none ${className}`}>
       {children}
     </section>
   );

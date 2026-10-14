@@ -1,3 +1,5 @@
+import { TtlCache, secretKey } from '@root/src/ttlCache';
+
 export type DiscordAccount = {
   id: string;
   username: string;
@@ -23,6 +25,13 @@ const API_BASE_URL = 'https://discord.com/api/v10';
 const ADMINISTRATOR = 0x8n;
 const MANAGE_GUILD = 0x20n;
 const DISCORD_FETCH_TIMEOUT_MS = 15000;
+// Sidebar, layout and pages each ask for the same data on every navigation;
+// this keeps that to one Discord round trip per minute per account.
+const DISCORD_CACHE_TTL_MS = 60_000;
+
+const accountCache = new TtlCache<DiscordAccount>(DISCORD_CACHE_TTL_MS);
+const guildCache = new TtlCache<DiscordGuild[]>(DISCORD_CACHE_TTL_MS);
+const voiceChannelCache = new TtlCache<DiscordVoiceChannel[]>(DISCORD_CACHE_TTL_MS);
 
 function headers(token: string): HeadersInit {
   return {
@@ -61,16 +70,19 @@ export function avatarUrl(account: DiscordAccount): string {
 }
 
 export async function fetchCurrentAccount(token: string): Promise<DiscordAccount> {
-  const response = await discordFetch(token, '/users/@me');
-  if (!response.ok) throw new Error('Nao foi possivel carregar a conta do Discord.');
-  return (await response.json()) as DiscordAccount;
+  return accountCache.get(secretKey(token), async () => {
+    const response = await discordFetch(token, '/users/@me');
+    if (!response.ok) throw new Error('Nao foi possivel carregar a conta do Discord.');
+    return (await response.json()) as DiscordAccount;
+  });
 }
 
 export async function fetchManageableGuilds(token: string): Promise<DiscordGuild[]> {
-  const response = await discordFetch(token, '/users/@me/guilds');
-  if (!response.ok) throw new Error('Nao foi possivel carregar os servidores.');
-
-  const guilds = (await response.json()) as DiscordGuild[];
+  const guilds = await guildCache.get(secretKey(token), async () => {
+    const response = await discordFetch(token, '/users/@me/guilds');
+    if (!response.ok) throw new Error('Nao foi possivel carregar os servidores.');
+    return (await response.json()) as DiscordGuild[];
+  });
   return guilds.filter((guild) => {
     const permissions = BigInt(guild.permissions ?? '0');
     return Boolean(permissions & ADMINISTRATOR) || Boolean(permissions & MANAGE_GUILD);
@@ -81,11 +93,17 @@ export async function fetchVoiceChannels(
   token: string,
   guildId: string
 ): Promise<DiscordVoiceChannel[]> {
-  const response = await discordFetch(token, `/guilds/${guildId}/channels`);
-  if (!response.ok) return [];
-
-  const channels = (await response.json()) as DiscordVoiceChannel[];
-  return channels.filter((channel) => channel.type === 2 || channel.type === 13);
+  try {
+    return await voiceChannelCache.get(`${secretKey(token)}:${guildId}`, async () => {
+      const response = await discordFetch(token, `/guilds/${guildId}/channels`);
+      // Thrown so the empty fallback is not cached.
+      if (!response.ok) throw new Error(`Discord HTTP ${response.status}`);
+      const channels = (await response.json()) as DiscordVoiceChannel[];
+      return channels.filter((channel) => channel.type === 2 || channel.type === 13);
+    });
+  } catch {
+    return [];
+  }
 }
 
 export async function accountCanManageGuild(

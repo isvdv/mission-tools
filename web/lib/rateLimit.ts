@@ -1,7 +1,18 @@
+import { HttpError } from './server';
+
 const windows = new Map<string, { count: number; resetAt: number }>();
+const PRUNE_THRESHOLD = 1000;
+
+function pruneExpired(now: number) {
+  for (const [key, window] of windows) {
+    if (now > window.resetAt) windows.delete(key);
+  }
+}
 
 export function assertRateLimit(key: string, limit = 20, windowMs = 60_000) {
   const now = Date.now();
+  if (windows.size > PRUNE_THRESHOLD) pruneExpired(now);
+
   const current = windows.get(key);
 
   if (!current || now > current.resetAt) {
@@ -11,6 +22,12 @@ export function assertRateLimit(key: string, limit = 20, windowMs = 60_000) {
 
   current.count += 1;
   if (current.count > limit) {
-    throw new Error('Muitas requisicoes. Tente novamente em instantes.');
+    throw new HttpError('Muitas requisicoes. Tente novamente em instantes.', 429);
   }
+}
+
+/** Best-effort client address; only trustworthy behind a proxy that sets these headers. */
+export function clientAddress(request: Request) {
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return forwarded || request.headers.get('x-real-ip')?.trim() || 'local';
 }

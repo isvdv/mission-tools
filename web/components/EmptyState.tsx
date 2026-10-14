@@ -2,10 +2,10 @@ import { Inbox } from 'lucide-react';
 
 export function EmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-white/15 p-8 text-center text-slate-300">
-      <Inbox className="mx-auto mb-3 h-8 w-8 text-cyanSoft" />
-      <p className="font-semibold text-white">{title}</p>
-      <p className="mt-1 text-sm">{description}</p>
+    <div className="rounded-[var(--radius)] border border-dashed border-[var(--border-hover)] bg-black/30 p-6 text-center text-[var(--text-secondary)]">
+      <Inbox className="mx-auto mb-3 h-6 w-6 text-[var(--accent)]" />
+      <p className="font-mono text-xs uppercase text-[var(--text-primary)]">{title}</p>
+      <p className="mt-2 text-sm">{description}</p>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mission-tools-pwa-v1';
+const CACHE_NAME = 'mission-tools-pwa-v2';
 const APP_ASSETS = ['/offline.html', '/app-icon.svg', '/app-maskable-icon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {

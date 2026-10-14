@@ -76,6 +76,8 @@ export type VoiceSessionUpdate = {
 export type DiscordTokenValidation = {
 	valid: boolean;
 	userId?: string;
+	/** True only when Discord itself rejected the token (HTTP 401). */
+	rejected?: boolean;
 };
 
 function discordHeaders(token: string): Record<string, string> {
@@ -165,6 +167,7 @@ export async function validateDiscordToken(
 		}
 		: {
 			valid: false,
+			rejected: status === 401,
 		};
 }
 
