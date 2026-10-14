@@ -6,8 +6,8 @@ export default function UsernameCheckerPage() {
     <div className="grid gap-6">
       <PageHeader
         eyebrow="Mission Tools"
-        title="Verificador de Usernames"
-        description="Verifique uma lista de usernames e exporte os resultados em JSON ou CSV."
+        title="Nomes de usuário"
+        description="Verifique quais nomes de usuário estão livres e exporte o resultado em JSON ou CSV."
       />
       <UsernameCheckerClient />
     </div>

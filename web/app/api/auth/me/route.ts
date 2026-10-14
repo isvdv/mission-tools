@@ -10,6 +10,6 @@ export async function GET() {
       avatarUrl: avatarUrl(account)
     });
   } catch (error) {
-    return jsonFail('Login obrigatorio.', error, 401);
+    return jsonFail('Login obrigatório.', error, 401);
   }
 }

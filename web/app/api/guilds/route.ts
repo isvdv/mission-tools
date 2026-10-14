@@ -7,6 +7,6 @@ export async function GET() {
     const guilds = await fetchManageableGuilds(auth.token);
     return jsonOk('Servidores carregados.', { guilds });
   } catch (error) {
-    return jsonFail('Nao foi possivel carregar os servidores.', error, 500);
+    return jsonFail('Não foi possível carregar os servidores.', error, 500);
   }
 }

@@ -17,12 +17,12 @@ export default async function VoicePage() {
     <div className="grid gap-6">
       <PageHeader
         eyebrow="Mission Tools"
-        title="Sessao de Voz"
+        title="Sessão de voz"
         description="Conecte a conta autenticada a um canal de voz usando o ID do servidor e do canal."
       />
       <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <StatusIndicator status={status.status} />
-        <p className="font-mono text-xs text-[var(--text-muted)]">MANAGEABLE_GUILDS: {guilds.length}</p>
+        <p className="text-sm text-[var(--text-secondary)]"><strong className="font-semibold text-[var(--text-primary)]">{guilds.length}</strong> {guilds.length === 1 ? 'servidor gerenciável' : 'servidores gerenciáveis'}</p>
       </Card>
       <ModuleActionPanel kind="voice" />
     </div>

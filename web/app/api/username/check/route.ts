@@ -13,6 +13,6 @@ export async function POST(request: NextRequest) {
     );
     return jsonOk('Verificacao de usernames concluida.', { results });
   } catch (error) {
-    return jsonFail('Nao foi possivel verificar os usernames.', error);
+    return jsonFail('Não foi possível verificar os usernames.', error);
   }
 }

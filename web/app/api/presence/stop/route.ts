@@ -7,8 +7,8 @@ export async function POST() {
     const status = await withApiLog(auth.userId, 'presence', 'stop', async () =>
       presenceService.stop(auth.userId)
     );
-    return jsonOk('Presenca parada.', { status });
+    return jsonOk('Presença parada.', { status });
   } catch (error) {
-    return jsonFail('Nao foi possivel parar a presenca.', error);
+    return jsonFail('Não foi possível parar a presença.', error);
   }
 }

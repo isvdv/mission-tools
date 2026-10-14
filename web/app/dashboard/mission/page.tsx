@@ -10,8 +10,8 @@ export default async function MissionPage() {
     <div className="grid gap-6">
       <PageHeader
         eyebrow="Mission Tools"
-        title="Sistema de Missoes"
-        description="Acompanhe a missao atual, progresso, recompensa e capacidades disponiveis do runner."
+        title="Missões"
+        description="Acompanhe a missão atual, o progresso e as recompensas, ou escolha a próxima missão."
       />
       <MissionLivePanel initialStatus={snapshot.status} initialAvailableMissions={snapshot.availableMissions ?? []} initialCatalogError={snapshot.availableMissionsError ?? ''} />
     </div>

@@ -9,6 +9,6 @@ export async function GET() {
       runtime: 'web-dashboard'
     });
   } catch (error) {
-    return jsonFail('Nao foi possivel carregar o status do bot.', error, 500);
+    return jsonFail('Não foi possível carregar o status do bot.', error, 500);
   }
 }

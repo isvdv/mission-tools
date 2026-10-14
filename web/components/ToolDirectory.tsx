@@ -5,9 +5,9 @@ const tools = [
   { href: '/dashboard/mission', title: 'Missões', description: 'Acompanhe a fila e o progresso das suas missões.', icon: ListChecks },
   { href: '/dashboard/voice', title: 'Sessão de voz', description: 'Escolha um canal e gerencie sua conexão.', icon: Radio },
   { href: '/dashboard/presence', title: 'Rich Presence', description: 'Personalize a atividade exibida no seu perfil.', icon: Activity },
-  { href: '/dashboard/clean', title: 'Limpeza', description: 'Organize mensagens com controle sobre a execução.', icon: Eraser },
+  { href: '/dashboard/clean', title: 'Limpeza', description: 'Apague suas mensagens de DM e desfaça amizades.', icon: Eraser },
   { href: '/dashboard/username-checker', title: 'Nomes de usuário', description: 'Consulte os nomes que você quer usar.', icon: UserSearch },
-  { href: '/dashboard/delete-dm', title: 'Mensagens diretas', description: 'Gerencie a limpeza das mensagens do bot.', icon: MessageSquareX }
+  { href: '/dashboard/delete-dm', title: 'Mensagens diretas', description: 'Remova os painéis que o bot enviou na sua DM.', icon: MessageSquareX }
 ];
 
 export function ToolDirectory() {

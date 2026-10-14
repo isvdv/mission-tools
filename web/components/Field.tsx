@@ -14,10 +14,10 @@ export function Field({
   return (
     <div className="grid gap-2">
       <div className="flex items-end justify-between gap-3">
-        <label htmlFor={htmlFor} className="font-mono text-xs uppercase text-[var(--text-secondary)]">
+        <label htmlFor={htmlFor} className="text-sm font-medium text-[var(--text-secondary)]">
           {label}
         </label>
-        {description ? <span className="font-mono text-[11px] text-[var(--text-muted)]">{description}</span> : null}
+        {description ? <span className="text-xs text-[var(--text-muted)]">{description}</span> : null}
       </div>
       {children}
     </div>

@@ -39,7 +39,7 @@ export async function apiRequest<T>(
   } catch (error) {
     return {
       success: false,
-      message: 'Nao foi possivel concluir a requisicao.',
+      message: 'Não foi possível concluir a requisição.',
       error: error instanceof Error ? error.message : String(error)
     };
   }

@@ -17,9 +17,9 @@ export async function POST(request: NextRequest) {
       module: 'auth',
       action: 'login',
       result: 'success',
-      message: 'Login por token concluido'
+      message: 'Login por token concluído'
     });
-    return jsonOk('Login concluido.', { userId: session.userId });
+    return jsonOk('Login concluído.', { userId: session.userId });
   } catch (error) {
     return jsonFail('Falha no login por token.', error, 401);
   }

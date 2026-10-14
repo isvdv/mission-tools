@@ -9,6 +9,6 @@ export async function POST() {
     );
     return jsonOk('Limpeza parada.', { status });
   } catch (error) {
-    return jsonFail('Nao foi possivel parar a limpeza.', error);
+    return jsonFail('Não foi possível parar a limpeza.', error);
   }
 }

@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
         enabledModules: body.enabledModules
       })
     );
-    return jsonOk('Configuracoes atualizadas.', { settings });
+    return jsonOk('Configurações atualizadas.', { settings });
   } catch (error) {
-    return jsonFail('Nao foi possivel atualizar as configuracoes.', error);
+    return jsonFail('Não foi possível atualizar as configurações.', error);
   }
 }

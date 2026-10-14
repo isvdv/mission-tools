@@ -10,8 +10,8 @@ export default async function SettingsPage() {
     <div className="grid gap-6">
       <PageHeader
         eyebrow="Mission Tools"
-        title="Configuracoes"
-        description="Configure padroes do painel, modulos e destinos de integracao."
+        title="Configurações"
+        description="Defina os valores padrão usados pelas ferramentas do painel."
       />
       <SettingsClient initial={settings} />
     </div>

@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Gamepad2, Sparkles } from 'lucide-react';
 import { Badge } from '../../../components/Badge';
 import { Button } from '../../../components/Button';
 import { Card } from '../../../components/Card';
 import { EmptyState } from '../../../components/EmptyState';
+import { PanelHeader } from '../../../components/PanelHeader';
 import { ProgressBar } from '../../../components/ProgressBar';
 import { StatusIndicator } from '../../../components/StatusIndicator';
 import { Toast } from '../../../components/Toast';
@@ -32,6 +34,7 @@ type AvailableMission = {
   gameIconUrl?: string;
   largeImage?: string;
   reward: string;
+  orbs?: number;
   taskType?: string;
   duration: number;
   progress: number;
@@ -41,8 +44,8 @@ type AvailableMission = {
 };
 
 const taskLabels: Record<string, string> = {
-  WATCH_VIDEO: 'Assistir video',
-  WATCH_VIDEO_ON_MOBILE: 'Assistir video mobile',
+  WATCH_VIDEO: 'Assistir vídeo',
+  WATCH_VIDEO_ON_MOBILE: 'Assistir vídeo no celular',
   PLAY_ON_DESKTOP: 'Jogar no desktop',
   STREAM_ON_DESKTOP: 'Transmitir no desktop',
   PLAY_ACTIVITY: 'Jogar atividade'
@@ -64,6 +67,8 @@ export function MissionLivePanel({
   const [catalogError, setCatalogError] = useState(initialCatalogError);
   const [refreshError, setRefreshError] = useState('');
   const [pending, setPending] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const actionPending = useRef(false);
   const requestVersion = useRef(0);
   const refreshController = useRef<AbortController | null>(null);
@@ -100,10 +105,10 @@ export function MissionLivePanel({
     if (actionPending.current) return;
     actionPending.current = true;
     setPending(true);
+    setPendingAction(typeof body?.missionId === 'string' ? body.missionId : path);
     requestVersion.current++;
     refreshController.current?.abort();
-    setMessage('Executando...');
-    setTone('neutral');
+    setMessage('');
     const response = await apiRequest<{ status: MissionStatus }>(path, {
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined
@@ -113,7 +118,14 @@ export function MissionLivePanel({
     setMessage(response.success ? response.message : `${response.message} ${response.error ?? ''}`);
     actionPending.current = false;
     setPending(false);
+    setPendingAction(null);
     await refresh();
+  }
+
+  async function retry() {
+    setRetrying(true);
+    await refresh();
+    setRetrying(false);
   }
 
   useEffect(() => {
@@ -148,123 +160,167 @@ export function MissionLivePanel({
   const progress = Math.max(0, Math.min(100, Math.round(status.progress ?? 0)));
   const active = status.active ?? ['Running', 'Stopping'].includes(status.state);
 
+  const updatedAt = new Date(status.updatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const queueLabel = status.totalMissions !== undefined ? `${status.currentIndex ?? 0} de ${status.totalMissions}` : 'Nenhuma fila ativa';
+  const stopping = status.state === 'Stopping';
+  const orbMissions = missions.filter((mission) => mission.available && (mission.orbs ?? 0) > 0);
+  const totalOrbs = orbMissions.reduce((sum, mission) => sum + (mission.orbs ?? 0), 0);
+
   return (
     <div className="grid gap-6">
-      {refreshError ? <div role="alert"><Toast tone="error" message={`Atualizacao interrompida: ${refreshError}`} /><Button variant="secondary" onClick={() => refresh()}>Tentar novamente</Button></div> : null}
+      {refreshError ? (
+        <Toast
+          tone="error"
+          message={`Não foi possível atualizar o status: ${refreshError}`}
+          action={<Button variant="secondary" className="min-h-9" loading={retrying} onClick={retry}>Tentar novamente</Button>}
+        />
+      ) : null}
+
       <Card padding={false}>
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-          <h3 className="font-mono text-xs uppercase text-[var(--text-primary)]">LIVE_MISSION</h3>
-          <span className="font-mono text-xs text-[var(--text-muted)]">
-            UPDATED: {new Date(status.updatedAt).toLocaleTimeString('pt-BR')}
-          </span>
-        </div>
+        <PanelHeader
+          inset
+          title="Execução atual"
+          meta={<span>Atualizado às <time dateTime={status.updatedAt} className="font-mono tabular-nums">{updatedAt}</time></span>}
+        />
 
         <div className="grid gap-5 p-5 lg:grid-cols-[1fr_auto] lg:items-start">
-          <div>
-            <div>
-              <StatusIndicator status={status.state} />
-            </div>
+          <div className="min-w-0">
+            <StatusIndicator status={status.state} />
             <div className="mt-4 flex items-center gap-4">
-              {status.gameIconUrl ? (
-                <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border)] bg-black">
-                  <img src={status.gameIconUrl} alt="" className="h-full w-full object-cover" />
-                </div>
-              ) : null}
-              <div>
-                <p className="text-xl font-semibold text-[var(--text-primary)] sm:text-2xl">
-                  {status.currentMission ?? 'Nenhuma missao em execucao'}
+              <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border)] bg-black/60 text-[var(--text-muted)]">
+                {status.gameIconUrl ? <img src={status.gameIconUrl} alt="" className="h-full w-full object-cover" /> : <Gamepad2 aria-hidden="true" className="h-6 w-6" />}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-xl font-semibold text-[var(--text-primary)] sm:text-2xl">
+                  {status.currentMission ?? 'Nenhuma missão em execução'}
                 </p>
-                <p className="font-mono text-xs text-[var(--accent)]">
-                  {status.gameName ?? 'Jogo ainda nao identificado'}
+                <p className="truncate text-sm text-[var(--accent)]">
+                  {status.gameName ?? 'Inicie a fila ou escolha uma missão abaixo.'}
                 </p>
               </div>
             </div>
-            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-              {status.detail ?? 'Aguardando inicio pelo painel web.'}
-            </p>
-            <div className="mt-4 grid gap-2 font-mono text-xs text-[var(--text-muted)] sm:grid-cols-2">
-              <span>REWARD: {status.reward ?? 'N/A'}</span>
-              <span>QUEUE: {status.totalMissions !== undefined ? `${status.currentIndex ?? 0}/${status.totalMissions}` : 'IDLE'}</span>
-            </div>
+            {status.detail ? <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{status.detail}</p> : null}
+            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              <div className="rounded-[var(--radius-sm)] bg-black/25 px-3 py-2">
+                <dt className="text-xs text-[var(--text-muted)]">Recompensa</dt>
+                <dd className="mt-0.5 truncate text-[var(--text-primary)]">{status.reward ?? '—'}</dd>
+              </div>
+              <div className="rounded-[var(--radius-sm)] bg-black/25 px-3 py-2">
+                <dt className="text-xs text-[var(--text-muted)]">Fila</dt>
+                <dd className="mt-0.5 text-[var(--text-primary)]">{queueLabel}</dd>
+              </div>
+            </dl>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button disabled={pending || active} onClick={() => call('/api/mission/start')}>Iniciar fila</Button>
-            <Button disabled={pending || !active || status.state === 'Stopping'} variant="secondary" onClick={() => call('/api/mission/stop')}>{status.state === 'Stopping' ? 'Parando...' : 'Parar missao'}</Button>
+            <Button disabled={pending || active} loading={pendingAction === '/api/mission/start'} onClick={() => call('/api/mission/start')}>
+              Iniciar fila
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={pending || !active || stopping}
+              loading={pendingAction === '/api/mission/stop' || stopping}
+              onClick={() => call('/api/mission/stop')}
+            >
+              {stopping ? 'Parando…' : 'Parar missão'}
+            </Button>
           </div>
         </div>
 
         <div className="border-t border-[var(--border)] p-5">
-          <ProgressBar label="MISSION_PROGRESS" value={progress} />
+          <ProgressBar label="Progresso da missão" value={progress} />
         </div>
 
-        {message ? <div aria-live="polite" className="px-5 pb-5"><Toast tone={tone} message={message} /></div> : null}
+        <div aria-live="polite">{message ? <div className="px-5 pb-5"><Toast tone={tone} message={message} /></div> : null}</div>
       </Card>
 
       <Card padding={false}>
-        {catalogError ? <div role="alert" className="p-4"><Toast tone="error" message={catalogError} /><Button variant="secondary" onClick={() => refresh()}>Atualizar lista</Button></div> : null}
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-          <h3 className="font-mono text-xs uppercase text-[var(--text-primary)]">MISSOES DISPONIVEIS PARA FAZER</h3>
-          <span className="font-mono text-xs text-[var(--text-muted)]">{missions.length} RECORDS</span>
-        </div>
+        <PanelHeader
+          inset
+          title="Missões disponíveis"
+          description="A fila faz só as missões que dão Orbs, da maior recompensa para a menor."
+          meta={orbMissions.length ? `${orbMissions.length} com Orbs · ${totalOrbs} Orbs no total` : undefined}
+        />
+
+        {catalogError ? (
+          <div className="px-4 pt-4">
+            <Toast
+              tone="error"
+              message={catalogError}
+              action={<Button variant="secondary" className="min-h-9" loading={retrying} onClick={retry}>Atualizar lista</Button>}
+            />
+          </div>
+        ) : null}
 
         {missions.length ? (
-          <div className="grid gap-3 p-4 xl:grid-cols-2 2xl:grid-cols-3">
+          <ul className="grid gap-3 p-4 xl:grid-cols-2 2xl:grid-cols-3">
             {missions.map((mission) => (
-              <div key={mission.id} className="grid gap-4 rounded-[var(--radius)] border border-[var(--border)] bg-black/30 p-4 transition duration-150 hover:border-[var(--border-hover)]">
+              <li key={mission.id} className={`grid gap-4 rounded-[var(--radius)] border border-[var(--border)] bg-black/25 p-4 transition duration-150 hover:border-[var(--border-hover)] ${mission.available ? '' : 'opacity-70'}`}>
                 <div className="flex items-start gap-3">
-                  {mission.gameIconUrl || mission.largeImage ? (
-                    <img
-                      src={mission.gameIconUrl || mission.largeImage}
-                      alt=""
-                      className="h-12 w-12 shrink-0 rounded-[var(--radius-sm)] border border-[var(--border)] object-cover"
-                    />
-                  ) : (
-                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[var(--radius-sm)] border border-[var(--border)] bg-black font-mono text-[10px] text-[var(--text-muted)]">
-                      QUEST
-                    </span>
-                  )}
+                  <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border)] bg-black/60 text-[var(--text-muted)]">
+                    {mission.gameIconUrl || mission.largeImage ? (
+                      <img src={mission.gameIconUrl || mission.largeImage} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <Gamepad2 aria-hidden="true" className="h-5 w-5" />
+                    )}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{mission.name}</p>
-                        <p className="truncate font-mono text-[11px] text-[var(--text-muted)]">{mission.gameName}</p>
+                        <p className="truncate text-sm font-semibold text-[var(--text-primary)]" title={mission.name}>{mission.name}</p>
+                        <p className="truncate text-xs text-[var(--text-muted)]">{mission.gameName}</p>
                       </div>
-                      <Badge tone={mission.available ? 'good' : 'warn'}>
-                        {mission.available ? 'Disponivel' : 'Limitado'}
-                      </Badge>
+                      {mission.orbs ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[rgba(155,188,255,0.4)] bg-[var(--accent-soft)] px-2.5 py-0.5 text-xs font-semibold text-[var(--accent)]">
+                          <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+                          {mission.orbs} Orbs
+                        </span>
+                      ) : (
+                        <Badge tone="neutral">Sem Orbs</Badge>
+                      )}
                     </div>
-                    <div className="mt-3 grid gap-1 font-mono text-[11px] text-[var(--text-muted)]">
-                      <span>ID: {mission.id}</span>
-                      <span>TASK: {mission.taskType ? taskLabels[mission.taskType] ?? mission.taskType : 'Unknown'}</span>
-                      <span>REWARD: {mission.reward}</span>
-                    </div>
+                    <dl className="mt-3 grid gap-1 text-xs">
+                      <div className="flex gap-2">
+                        <dt className="text-[var(--text-muted)]">Tarefa:</dt>
+                        <dd className="text-[var(--text-secondary)]">{mission.taskType ? taskLabels[mission.taskType] ?? mission.taskType : 'Desconhecida'}</dd>
+                      </div>
+                      {mission.orbs ? null : (
+                        <div className="flex min-w-0 gap-2">
+                          <dt className="text-[var(--text-muted)]">Recompensa:</dt>
+                          <dd className="min-w-0 truncate text-[var(--text-secondary)]">{mission.reward}</dd>
+                        </div>
+                      )}
+                    </dl>
                   </div>
                 </div>
 
-                <ProgressBar label="MISSION_PROGRESS" value={mission.progress} />
+                <ProgressBar label="Progresso" value={mission.progress} />
 
                 {mission.unavailableReason ? (
-                  <p className="text-xs leading-5 text-[var(--warning)]">{mission.unavailableReason}</p>
+                  <p className="text-xs leading-5 text-[var(--text-muted)]">{mission.unavailableReason}</p>
                 ) : null}
 
                 <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-3">
-                  <span className="font-mono text-[11px] text-[var(--text-muted)]">
-                    {mission.enrolled ? 'ENROLLED' : 'NOT_ENROLLED'}
+                  <span className="text-xs text-[var(--text-muted)]">
+                    {mission.enrolled ? 'Inscrito' : 'Não inscrito'}
                   </span>
                   <Button
                     onClick={() => call('/api/mission/start', { missionId: mission.id })}
                     disabled={!mission.available || pending || active}
+                    loading={pendingAction === mission.id}
                     className="min-h-9"
                   >
-                    Iniciar esta missao
+                    Iniciar esta missão
                   </Button>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         ) : (
           <div className="p-5">
-            <EmptyState title={catalogError ? 'Lista indisponivel' : 'Nenhuma missao disponivel'} description={catalogError ? 'Use Atualizar lista para tentar novamente.' : 'Nenhuma missao valida foi encontrada para este usuario.'} />
+            <EmptyState
+              title={catalogError ? 'Lista indisponível' : 'Nenhuma missão disponível'}
+              description={catalogError ? 'Use “Atualizar lista” para tentar novamente.' : 'Quando o Discord liberar novas missões com Orbs para sua conta, elas aparecem aqui.'}
+            />
           </div>
         )}
       </Card>

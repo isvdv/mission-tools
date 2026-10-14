@@ -14,6 +14,6 @@ export async function POST(request: NextRequest) {
     );
     return jsonOk('Sessao de voz iniciada.', { status });
   } catch (error) {
-    return jsonFail('Nao foi possivel iniciar a sessao de voz.', error);
+    return jsonFail('Não foi possível iniciar a sessão de voz.', error);
   }
 }

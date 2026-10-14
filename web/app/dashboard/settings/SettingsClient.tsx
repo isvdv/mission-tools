@@ -5,6 +5,7 @@ import { Button } from '../../../components/Button';
 import { Card } from '../../../components/Card';
 import { Field } from '../../../components/Field';
 import { Input } from '../../../components/Input';
+import { PanelHeader } from '../../../components/PanelHeader';
 import { Toast } from '../../../components/Toast';
 import { apiRequest } from '../../../lib/api';
 
@@ -13,36 +14,42 @@ export function SettingsClient({ initial }: { initial: { defaultGuildId?: string
   const [defaultVoiceChannelId, setDefaultVoiceChannelId] = useState(initial.defaultVoiceChannelId ?? '');
   const [webhookUrl, setWebhookUrl] = useState(initial.webhookUrl ?? '');
   const [message, setMessage] = useState('');
+  const [tone, setTone] = useState<'success' | 'error'>('success');
+  const [saving, setSaving] = useState(false);
 
-  async function save() {
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setMessage('');
     const response = await apiRequest('/api/settings/update', {
       method: 'POST',
       body: JSON.stringify({ defaultGuildId, defaultVoiceChannelId, webhookUrl })
     });
-    setMessage(response.message);
+    setTone(response.success ? 'success' : 'error');
+    setMessage(response.success ? response.message : [response.message, response.error].filter(Boolean).join(' '));
+    setSaving(false);
   }
 
   return (
-    <Card className="grid gap-5">
-      <div className="border-b border-[var(--border)] pb-3">
-        <h3 className="font-mono text-xs uppercase text-[var(--text-primary)]">CONFIG_STORE</h3>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">Valores usados como padrao pelos modulos do painel.</p>
-      </div>
+    <Card>
+      <form className="grid gap-5" onSubmit={save}>
+      <PanelHeader title="Padrões" description="Valores preenchidos automaticamente nas ferramentas do painel." />
       <div className="grid gap-4 lg:grid-cols-2">
-        <Field label="Default Guild ID" htmlFor="settings-guild-id">
-          <Input id="settings-guild-id" placeholder="123456789012345678" value={defaultGuildId} onChange={(event) => setDefaultGuildId(event.target.value)} />
+        <Field label="Servidor padrão (ID)" htmlFor="settings-guild-id">
+          <Input id="settings-guild-id" inputMode="numeric" autoComplete="off" className="font-mono" placeholder="123456789012345678" value={defaultGuildId} onChange={(event) => setDefaultGuildId(event.target.value)} />
         </Field>
-        <Field label="Default Voice Channel ID" htmlFor="settings-voice-channel">
-          <Input id="settings-voice-channel" placeholder="123456789012345678" value={defaultVoiceChannelId} onChange={(event) => setDefaultVoiceChannelId(event.target.value)} />
+        <Field label="Canal de voz padrão (ID)" htmlFor="settings-voice-channel">
+          <Input id="settings-voice-channel" inputMode="numeric" autoComplete="off" className="font-mono" placeholder="123456789012345678" value={defaultVoiceChannelId} onChange={(event) => setDefaultVoiceChannelId(event.target.value)} />
         </Field>
       </div>
-      <Field label="Webhook URL" htmlFor="settings-webhook">
-        <Input id="settings-webhook" placeholder="https://discord.com/api/webhooks/..." value={webhookUrl} onChange={(event) => setWebhookUrl(event.target.value)} />
+      <Field label="URL do webhook" htmlFor="settings-webhook" description="Opcional">
+        <Input id="settings-webhook" type="url" autoComplete="off" placeholder="https://discord.com/api/webhooks/..." value={webhookUrl} onChange={(event) => setWebhookUrl(event.target.value)} />
       </Field>
       <div className="border-t border-[var(--border)] pt-4">
-        <Button onClick={save}>SAVE CONFIG</Button>
+        <Button type="submit" loading={saving}>Salvar configurações</Button>
       </div>
-      {message ? <Toast message={message} /> : null}
+      <div aria-live="polite">{message ? <Toast message={message} tone={tone} /> : null}</div>
+      </form>
     </Card>
   );
 }

@@ -9,6 +9,7 @@ import { Textarea } from '../../../components/Input';
 import { Table } from '../../../components/Table';
 import { Badge } from '../../../components/Badge';
 import { Toast } from '../../../components/Toast';
+import { PanelHeader } from '../../../components/PanelHeader';
 import { apiRequest } from '../../../lib/api';
 
 type Result = {
@@ -18,15 +19,18 @@ type Result = {
 };
 
 const statusLabels: Record<Result['status'], string> = {
-  available: 'disponivel',
-  unavailable: 'indisponivel',
-  error: 'erro'
+  available: 'Disponível',
+  unavailable: 'Em uso',
+  error: 'Erro'
 };
 
 export function UsernameCheckerClient() {
   const [raw, setRaw] = useState('');
   const [results, setResults] = useState<Result[]>([]);
   const [message, setMessage] = useState('');
+  const [tone, setTone] = useState<'success' | 'error'>('success');
+  const [checking, setChecking] = useState(false);
+  const usernames = useMemo(() => raw.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean), [raw]);
 
   const rows = useMemo(() => results.map((result) => [
     result.username,
@@ -35,18 +39,20 @@ export function UsernameCheckerClient() {
   ]), [results]);
 
   async function check() {
-    setMessage('Verificando usernames...');
-    const usernames = raw.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+    setChecking(true);
+    setMessage('');
     const response = await apiRequest<{ results: Result[] }>('/api/username/check', {
       method: 'POST',
       body: JSON.stringify({ usernames })
     });
+    setChecking(false);
+    setTone(response.success ? 'success' : 'error');
     if (response.success) {
       setResults(response.data.results);
       setMessage(response.message);
       return;
     }
-    setMessage(response.message);
+    setMessage([response.message, response.error].filter(Boolean).join(' '));
   }
 
   function exportJson() {
@@ -72,23 +78,20 @@ export function UsernameCheckerClient() {
 
   return (
     <Card className="grid gap-5">
-      <div className="border-b border-[var(--border)] pb-3">
-        <h3 className="font-mono text-xs uppercase text-[var(--text-primary)]">USERNAME_SCAN</h3>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">Cole usernames separados por linha ou virgula para consultar disponibilidade.</p>
-      </div>
-      <Field label="Input Buffer" htmlFor="username-buffer" description="newline/comma">
-        <Textarea id="username-buffer" placeholder={'usuario_01\nusuario_02'} value={raw} onChange={(event) => setRaw(event.target.value)} />
+      <PanelHeader title="Verificar nomes" description="Cole os nomes separados por linha ou vírgula." />
+      <Field label="Nomes de usuário" htmlFor="username-buffer" description={usernames.length ? `${usernames.length} ${usernames.length === 1 ? 'nome' : 'nomes'}` : 'Um por linha'}>
+        <Textarea id="username-buffer" spellCheck={false} autoCapitalize="none" className="font-mono" placeholder={'usuario_01\nusuario_02'} value={raw} onChange={(event) => setRaw(event.target.value)} />
       </Field>
       <div className="flex flex-wrap gap-3 border-t border-[var(--border)] pt-4">
-        <Button onClick={check}>RUN SCAN</Button>
-        <Button variant="secondary" onClick={exportJson} disabled={!results.length}>EXPORT JSON</Button>
-        <Button variant="secondary" onClick={exportCsv} disabled={!results.length}>EXPORT CSV</Button>
+        <Button onClick={check} loading={checking} disabled={!usernames.length}>Verificar</Button>
+        <Button variant="secondary" onClick={exportJson} disabled={!results.length}>Exportar JSON</Button>
+        <Button variant="secondary" onClick={exportCsv} disabled={!results.length}>Exportar CSV</Button>
       </div>
-      {message ? <Toast message={message} /> : null}
+      <div aria-live="polite">{message ? <Toast message={message} tone={tone} /> : null}</div>
       {results.length ? (
-        <Table headers={['Username', 'Status', 'Erro']} rows={rows} />
+        <Table headers={['Nome', 'Situação', 'Detalhe']} rows={rows} />
       ) : (
-        <EmptyState title="NO RESULTS" description="Execute uma verificacao para preencher a tabela de usernames." />
+        <EmptyState title="Nenhum resultado ainda" description="Cole alguns nomes acima e clique em Verificar para ver quais estão livres." />
       )}
     </Card>
   );

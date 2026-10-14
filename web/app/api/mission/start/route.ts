@@ -8,10 +8,10 @@ export async function POST(request: Request) {
     const rawBody = await request.text();
     const body: unknown = rawBody.trim() ? JSON.parse(rawBody) : {};
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
-      return jsonFail('Pedido de missao invalido.');
+      return jsonFail('Pedido de missão inválido.');
     }
     if ('missionId' in body && (typeof body.missionId !== 'string' || !/^\d+$/.test(body.missionId.trim()))) {
-      return jsonFail('Selecione uma missao valida.');
+      return jsonFail('Selecione uma missão válida.');
     }
     const missionId = 'missionId' in body && typeof body.missionId === 'string' && body.missionId.trim()
       ? body.missionId.trim()
@@ -20,8 +20,8 @@ export async function POST(request: Request) {
     const status = await withApiLog(auth.userId, 'mission', 'start', () =>
       missionService.start(auth.userId, auth.token, { missionId })
     );
-    return jsonOk('Missao iniciada.', { status });
+    return jsonOk('Missão iniciada.', { status });
   } catch (error) {
-    return jsonFail('Nao foi possivel iniciar a missao.', error);
+    return jsonFail('Não foi possível iniciar a missão.', error);
   }
 }

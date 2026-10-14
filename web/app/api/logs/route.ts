@@ -7,6 +7,6 @@ export async function GET() {
     const logs = await logService.list(auth.userId, 100);
     return jsonOk('Logs carregados.', { logs });
   } catch (error) {
-    return jsonFail('Nao foi possivel carregar os logs.', error, 500);
+    return jsonFail('Não foi possível carregar os logs.', error, 500);
   }
 }

@@ -12,8 +12,8 @@ export default async function CleanPage() {
     <div className="grid gap-6">
       <PageHeader
         eyebrow="Mission Tools"
-        title="Sistema de Limpeza"
-        description="Execute e monitore tarefas de limpeza de DM usando os controles desta pagina."
+        title="Limpeza de DMs"
+        description="Apague suas mensagens nas conversas privadas e acompanhe o andamento por aqui."
       />
       <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <StatusIndicator status={status.state} />

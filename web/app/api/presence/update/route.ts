@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
         activityType: typeof config.activityType === 'number' ? config.activityType as 0 | 1 | 2 | 3 | 5 : 0
       })
     );
-    return jsonOk('Presenca atualizada.', { status });
+    return jsonOk('Presença atualizada.', { status });
   } catch (error) {
-    return jsonFail('Nao foi possivel atualizar a presenca.', error);
+    return jsonFail('Não foi possível atualizar a presença.', error);
   }
 }

@@ -9,6 +9,6 @@ export async function POST() {
     );
     return jsonOk('Sessao de voz parada.', { status });
   } catch (error) {
-    return jsonFail('Nao foi possivel parar a sessao de voz.', error);
+    return jsonFail('Não foi possível parar a sessão de voz.', error);
   }
 }

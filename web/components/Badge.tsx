@@ -5,5 +5,5 @@ export function Badge({ children, tone = 'neutral' }: { children: React.ReactNod
     warn: 'border-[var(--warning-border)] bg-[var(--warning-soft)] text-[var(--warning)]',
     bad: 'border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger)]'
   };
-  return <span className={`inline-flex items-center rounded-[3px] border px-2 py-0.5 font-mono text-[11px] font-medium uppercase ${tones[tone]}`}>{children}</span>;
+  return <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>;
 }

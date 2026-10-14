@@ -72,7 +72,7 @@ export function avatarUrl(account: DiscordAccount): string {
 export async function fetchCurrentAccount(token: string): Promise<DiscordAccount> {
   return accountCache.get(secretKey(token), async () => {
     const response = await discordFetch(token, '/users/@me');
-    if (!response.ok) throw new Error('Nao foi possivel carregar a conta do Discord.');
+    if (!response.ok) throw new Error('Não foi possível carregar a conta do Discord.');
     return (await response.json()) as DiscordAccount;
   });
 }
@@ -80,7 +80,7 @@ export async function fetchCurrentAccount(token: string): Promise<DiscordAccount
 export async function fetchManageableGuilds(token: string): Promise<DiscordGuild[]> {
   const guilds = await guildCache.get(secretKey(token), async () => {
     const response = await discordFetch(token, '/users/@me/guilds');
-    if (!response.ok) throw new Error('Nao foi possivel carregar os servidores.');
+    if (!response.ok) throw new Error('Não foi possível carregar os servidores.');
     return (await response.json()) as DiscordGuild[];
   });
   return guilds.filter((guild) => {

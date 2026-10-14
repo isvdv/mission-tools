@@ -1,7 +1,7 @@
 export function Table({
   headers,
   rows,
-  emptyLabel = 'NO DATA AVAILABLE'
+  emptyLabel = 'Nenhum registro encontrado.'
 }: {
   headers: string[];
   rows: React.ReactNode[][];
@@ -13,7 +13,7 @@ export function Table({
         <thead className="border-b border-[var(--border)] bg-black/35 text-[var(--text-secondary)]">
           <tr>
             {headers.map((header) => (
-              <th key={header} className="px-4 py-3 font-mono text-xs font-medium uppercase">
+              <th key={header} scope="col" className="px-4 py-3 text-xs font-medium">
                 {header}
               </th>
             ))}
@@ -31,7 +31,7 @@ export function Table({
           )) : (
             <tr>
               <td colSpan={headers.length} className="px-4 py-8 text-center">
-                <span className="font-mono text-xs text-[var(--text-muted)]">{emptyLabel}</span>
+                <span className="text-sm text-[var(--text-muted)]">{emptyLabel}</span>
               </td>
             </tr>
           )}

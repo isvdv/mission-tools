@@ -56,7 +56,7 @@ export async function requireWebAuth() {
   const cookieStore = await cookies();
   const cookieValue = cookieStore.get(WEB_SESSION_COOKIE)?.value;
   const session = authService.parseSessionCookie(cookieValue);
-  if (!session) throw new HttpError('Login obrigatorio.', 401);
+  if (!session) throw new HttpError('Login obrigatório.', 401);
 
   let token: string;
   try {
@@ -72,7 +72,7 @@ export async function requireWebAuth() {
 
 export async function requireGuildPermission(token: string, guildId?: string) {
   const allowed = await accountCanManageGuild(token, guildId);
-  if (!allowed) throw new HttpError('Voce nao tem permissao nesse servidor.', 403);
+  if (!allowed) throw new HttpError('Você não tem permissão nesse servidor.', 403);
 }
 
 export async function withApiLog<T>(
@@ -88,7 +88,7 @@ export async function withApiLog<T>(
       module: moduleName,
       action,
       result: 'success',
-      message: `${moduleName}.${action} concluido`
+      message: `${moduleName}.${action} concluído`
     });
     return data;
   } catch (error) {

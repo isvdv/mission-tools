@@ -22,7 +22,7 @@ export function assertRateLimit(key: string, limit = 20, windowMs = 60_000) {
 
   current.count += 1;
   if (current.count > limit) {
-    throw new HttpError('Muitas requisicoes. Tente novamente em instantes.', 429);
+    throw new HttpError('Muitas requisições. Tente novamente em instantes.', 429);
   }
 }
 

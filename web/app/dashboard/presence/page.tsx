@@ -12,7 +12,7 @@ export default async function PresencePage() {
       <PageHeader
         eyebrow="Mission Tools"
         title="Rich Presence"
-        description="Configure textos, imagens, botao, ID do app e horario inicial da atividade."
+        description="Configure textos, imagens, botão, ID do app e horário inicial da atividade."
       />
       <PresenceEditor initialStatus={status} />
     </div>

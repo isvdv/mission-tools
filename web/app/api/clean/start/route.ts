@@ -15,6 +15,6 @@ export async function POST(request: NextRequest) {
     );
     return jsonOk('Limpeza iniciada.', { status });
   } catch (error) {
-    return jsonFail('Nao foi possivel iniciar a limpeza.', error);
+    return jsonFail('Não foi possível iniciar a limpeza.', error);
   }
 }
